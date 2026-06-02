@@ -5,10 +5,12 @@ import {
   CheckCircle2, 
   ShieldAlert,
   User,
-  Info
+  Info,
+  Heart
 } from 'lucide-react';
 import { dbService } from '../firebase';
 import type { Student, SurveyAnswer } from '../types';
+import { SURVEY_TEMPLATES } from '../lib/surveyTemplates';
 import toast from 'react-hot-toast';
 
 interface PublicSurveyFormProps {
@@ -17,60 +19,6 @@ interface PublicSurveyFormProps {
   gradeName: string;
 }
 
-interface DIAQuestion {
-  id: string;
-  text: string;
-  category: 'Clima Social' | 'Autoestima' | 'Seguridad' | 'Apoyo Docente';
-}
-
-interface DIASurvey {
-  id: string;
-  title: string;
-  description: string;
-  target: string;
-  questions: DIAQuestion[];
-}
-
-const SURVEY_TEMPLATES: DIASurvey[] = [
-  {
-    id: 'dia-clima-aula',
-    title: 'Diagnóstico DIA: Clima de Aula e Inclusión',
-    description: 'Evalúa la percepción de los estudiantes sobre la convivencia, el trato respetuoso, la equidad de género y el nivel de integración socioemocional dentro del salón de clases.',
-    target: 'Estudiantes',
-    questions: [
-      { id: 'q1', text: 'Los estudiantes de mi curso se tratan con respeto durante los recreos y en la sala de clases.', category: 'Clima Social' },
-      { id: 'q2', text: 'Siento que mis profesores me escuchan y me apoyan cuando tengo una dificultad de aprendizaje o personal.', category: 'Apoyo Docente' },
-      { id: 'q3', text: 'Mi sala de clases es un lugar seguro donde me siento protegido y libre de bullying.', category: 'Seguridad' },
-      { id: 'q4', text: 'Siento que todos los estudiantes del curso son integrados por igual, sin discriminación de ningún tipo.', category: 'Clima Social' }
-    ]
-  },
-  {
-    id: 'dia-bienestar-autoestima',
-    title: 'Diagnóstico DIA: Bienestar Socioemocional y Autoestima',
-    description: 'Mide la valoración personal de los alumnos, la capacidad de identificar y expresar sus emociones, y la presencia de redes de apoyo al interior de la comunidad escolar.',
-    target: 'Estudiantes',
-    questions: [
-      { id: 'q1', text: 'Me siento feliz, cómodo y valorado con quién soy al interior de mi establecimiento escolar.', category: 'Autoestima' },
-      { id: 'q2', text: 'Cuando me siento triste, asustado o abrumado, sé a qué profesional del colegio recurrir para pedir ayuda.', category: 'Autoestima' },
-      { id: 'q3', text: 'Puedo expresar mis emociones, ideas y opiniones de manera libre y segura dentro de mi colegio.', category: 'Seguridad' },
-      { id: 'q4', text: 'Los psicólogos y profesores del colegio se preocupan de manera activa por mi salud mental y emocional.', category: 'Apoyo Docente' }
-    ]
-  },
-  {
-    id: 'dia-relaciones-bullying',
-    title: 'Diagnóstico DIA: Relaciones Interpersonales y Violencia Escolar',
-    description: 'Evalúa la frecuencia de conductas disruptivas o burlas, el conocimiento de los canales de denuncia RICE y la velocidad de respuesta del equipo ante casos de violencia escolar.',
-    target: 'Estudiantes',
-    questions: [
-      { id: 'q1', text: 'En mi curso, las diferencias de opinión se resuelven mediante el diálogo y no con agresiones verbales o físicas.', category: 'Clima Social' },
-      { id: 'q2', text: 'Conozco claramente los canales y profesionales con quienes deunciar un hecho de acoso o ciberacoso.', category: 'Seguridad' },
-      { id: 'q3', text: 'Siento que el Reglamento de Convivencia Escolar se aplica de manera justa y equitativa para todos los alumnos.', category: 'Clima Social' },
-      { id: 'q4', text: 'El equipo de convivencia escolar actúa con rapidez y efectividad cuando ocurre un conflicto en mi curso.', category: 'Apoyo Docente' }
-    ]
-  }
-];
-
-// Emoji mapping for Likert 1-5 scale
 const EMOJIS = [
   { value: 1, char: '😡', label: 'Muy en desacuerdo' },
   { value: 2, char: '🙁', label: 'En desacuerdo' },
@@ -181,20 +129,59 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
 
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
-        <div className="absolute top-[-15%] left-[-15%] w-[50%] h-[50%] rounded-full bg-emerald-600/10 blur-[130px]"></div>
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-y-auto font-sans">
+        <div className="absolute top-[-15%] left-[-15%] w-[50%] h-[50%] rounded-full bg-emerald-600/10 blur-[130px] pointer-events-none"></div>
+        <div className="absolute bottom-[-15%] right-[-15%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[130px] pointer-events-none"></div>
         
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10 text-center space-y-6">
+        <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10 text-center space-y-6 my-6">
           <div className="inline-flex p-4 bg-emerald-950/60 text-emerald-400 rounded-full border border-emerald-900/60 shadow-lg">
             <CheckCircle2 size={48} className="animate-pulse" />
           </div>
           <div>
             <h1 className="font-black text-2xl text-white tracking-tight">¡Muchas Gracias!</h1>
-            <p className="text-sm text-slate-400 mt-2">Tus respuestas se han guardado con éxito.</p>
+            <p className="text-sm text-slate-400 mt-2">Tus respuestas se han guardado con éxito y de forma confidencial.</p>
           </div>
-          <div className="bg-slate-850/50 border border-slate-800 rounded-2xl p-4.5 text-xs text-slate-350 leading-relaxed text-left">
-            Tu opinión es muy importante para nosotros. Los datos recopilados serán procesados de manera profesional por el departamento de Convivencia Escolar y la Dupla Psicosocial de tu establecimiento para implementar mejoras en el clima escolar y el bienestar socioemocional.
+ 
+          {/* PRIMEROS AUXILIOS EMOCIONALES CARD */}
+          <div className="bg-slate-850/60 border border-slate-800 rounded-2xl p-5 text-left space-y-4 shadow-inner">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <Heart className="text-rose-500 fill-rose-500 animate-pulse" size={18} />
+              <h3 className="font-bold text-xs text-slate-200 uppercase tracking-wider">Ficha de Bienestar y Contención</h3>
+            </div>
+            
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Tus respuestas ayudan al establecimiento a crear un ambiente más seguro y comprensivo. Recuerda cuidar de ti mismo:
+            </p>
+ 
+            <ul className="space-y-3 text-[11px] text-slate-350">
+              <li className="flex gap-2">
+                <span className="text-rose-400 shrink-0">🧘</span>
+                <div>
+                  <strong className="text-slate-200">Ejercita la calma:</strong> Si te sientes angustiado o frustrado, realiza respiraciones pausadas: inhala en 4 segundos, mantén en 4 y exhala en 4.
+                </div>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-rose-400 shrink-0">🗣️</span>
+                <div>
+                  <strong className="text-slate-200">Conversa tus emociones:</strong> Expresar tus sentimientos no es debilidad. Busca a un compañero, profesor jefe o a tu familia para hablar.
+                </div>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-rose-400 shrink-0">👥</span>
+                <div>
+                  <strong className="text-slate-200">Dupla de Apoyo Escolar:</strong> No cargues solo con los problemas. El Psicólogo y Trabajador Social del colegio están disponibles para conversar de forma confidencial en la oficina de apoyo.
+                </div>
+              </li>
+            </ul>
           </div>
+ 
+          <div className="bg-indigo-950/20 border border-indigo-900/40 rounded-2xl p-4 text-[11px] text-indigo-300 leading-relaxed text-left flex gap-3">
+            <Info size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+            <p>
+              Toda la información recolectada se resguarda bajo estrictos protocolos y sirve para que el colegio implemente talleres y apoyos personalizados para tu curso.
+            </p>
+          </div>
+ 
           <div className="text-[10px] text-slate-500 font-mono pt-4 border-t border-slate-800">
             CONEXIA • Plataforma Escolar de Contención y Clima
           </div>

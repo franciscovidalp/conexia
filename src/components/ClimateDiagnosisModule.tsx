@@ -7,29 +7,21 @@ import {
   Brain,
   Building,
   UserCheck,
-  Link
+  Link,
+  Sparkles,
+  BookmarkCheck,
+  TrendingUp,
+  X,
+  FileText
 } from 'lucide-react';
 import { dbService } from '../firebase';
 import type { Student, SchoolType, PsychosocialCase } from '../types';
+import { SURVEY_TEMPLATES } from '../lib/surveyTemplates';
 import toast from 'react-hot-toast';
 
 interface ClimateDiagnosisModuleProps {
   activeSchool: SchoolType;
   students: Student[];
-}
-
-interface DIAQuestion {
-  id: string;
-  text: string;
-  category: 'Clima Social' | 'Autoestima' | 'Seguridad' | 'Apoyo Docente';
-}
-
-interface DIASurvey {
-  id: string;
-  title: string;
-  description: string;
-  target: string;
-  questions: DIAQuestion[];
 }
 
 interface DIAResponse {
@@ -41,45 +33,6 @@ interface DIAResponse {
   submittedAt: string;
 }
 
-const SURVEY_TEMPLATES: DIASurvey[] = [
-  {
-    id: 'dia-clima-aula',
-    title: 'Diagnóstico DIA: Clima de Aula e Inclusión',
-    description: 'Evalúa la percepción de los estudiantes sobre la convivencia, el trato respetuoso, la equidad de género y el nivel de integración socioemocional dentro del salón de clases.',
-    target: 'Estudiantes',
-    questions: [
-      { id: 'q1', text: 'Los estudiantes de mi curso se tratan con respeto durante los recreos y en la sala de clases.', category: 'Clima Social' },
-      { id: 'q2', text: 'Siento que mis profesores me escuchan y me apoyan cuando tengo una dificultad de aprendizaje o personal.', category: 'Apoyo Docente' },
-      { id: 'q3', text: 'Mi sala de clases es un lugar seguro donde me siento protegido y libre de bullying.', category: 'Seguridad' },
-      { id: 'q4', text: 'Siento que todos los estudiantes del curso son integrados por igual, sin discriminación de ningún tipo.', category: 'Clima Social' }
-    ]
-  },
-  {
-    id: 'dia-bienestar-autoestima',
-    title: 'Diagnóstico DIA: Bienestar Socioemocional y Autoestima',
-    description: 'Mide la valoración personal de los alumnos, la capacidad de identificar y expresar sus emociones, y la presencia de redes de apoyo al interior de la comunidad escolar.',
-    target: 'Estudiantes',
-    questions: [
-      { id: 'q1', text: 'Me siento feliz, cómodo y valorado con quién soy al interior de mi establecimiento escolar.', category: 'Autoestima' },
-      { id: 'q2', text: 'Cuando me siento triste, asustado o abrumado, sé a qué profesional del colegio recurrir para pedir ayuda.', category: 'Autoestima' },
-      { id: 'q3', text: 'Puedo expresar mis emociones, ideas y opiniones de manera libre y segura dentro de mi colegio.', category: 'Seguridad' },
-      { id: 'q4', text: 'Los psicólogos y profesores del colegio se preocupan de manera activa por mi salud mental y emocional.', category: 'Apoyo Docente' }
-    ]
-  },
-  {
-    id: 'dia-relaciones-bullying',
-    title: 'Diagnóstico DIA: Relaciones Interpersonales y Violencia Escolar',
-    description: 'Evalúa la frecuencia de conductas disruptivas o burlas, el conocimiento de los canales de denuncia RICE y la velocidad de respuesta del equipo ante casos de violencia escolar.',
-    target: 'Estudiantes',
-    questions: [
-      { id: 'q1', text: 'En mi curso, las diferencias de opinión se resuelven mediante el diálogo y no con agresiones verbales o físicas.', category: 'Clima Social' },
-      { id: 'q2', text: 'Conozco claramente los canales y profesionales con quienes denunciar un hecho de acoso o ciberacoso.', category: 'Seguridad' },
-      { id: 'q3', text: 'Siento que el Reglamento de Convivencia Escolar se aplica de manera justa y equitativa para todos los alumnos.', category: 'Clima Social' },
-      { id: 'q4', text: 'El equipo de convivencia escolar actúa con rapidez y efectividad cuando ocurre un conflicto en mi curso.', category: 'Apoyo Docente' }
-    ]
-  }
-];
-
 export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   activeSchool,
   students
@@ -88,6 +41,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [responses, setResponses] = useState<DIAResponse[]>([]);
   const [referredStudentIds, setReferredStudentIds] = useState<string[]>([]);
+  const [activeIndividualResponse, setActiveIndividualResponse] = useState<DIAResponse | null>(null);
 
   const selectedSurvey = SURVEY_TEMPLATES.find(s => s.id === selectedSurveyId) || SURVEY_TEMPLATES[0];
   const courses = Array.from(new Set(students.filter(s => s.school === activeSchool).map(s => s.grade))).sort();
@@ -224,6 +178,96 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
 
   // Alertas críticas (students with risk Crítico or Alto)
   const criticalAlerts = responses.filter(r => r.riskStatus === 'Crítico' || r.riskStatus === 'Alto');
+
+  // Find critical and strong dimensions for group feedback
+  const getGroupFeedback = () => {
+    if (responses.length === 0) return null;
+    
+    // Sort dimensions by score
+    const sortedStats = [...categoryStats].sort((a, b) => b.percentage - a.percentage);
+    const strongDim = sortedStats[0];
+    const criticalDim = sortedStats[sortedStats.length - 1];
+
+    let diagnosis = '';
+    let actionPlan = '';
+
+    if (criticalDim.category === 'Seguridad') {
+      diagnosis = 'El curso reporta debilidades en seguridad escolar, manifestando temor ante el bullying, desinformación sobre los canales de denuncia o presenciando agresiones en espacios comunes.';
+      actionPlan = 'Coordinar con Inspectoría General un ciclo de mediación escolar. Agendar un Taller RICE preventivo sobre Ciberacoso y Violencia de Género. Agilizar entrevistas de apoyo individual a los casos detectados en riesgo crítico.';
+    } else if (criticalDim.category === 'Autoestima') {
+      diagnosis = 'Se observan índices preocupantes en bienestar socioemocional y autovaloración. Los estudiantes expresan dificultades para identificar o regular sus emociones y carecen de un espacio percibido como seguro para desahogarse.';
+      actionPlan = 'Derivar de manera colectiva al curso a dinámicas grupales de contención socioemocional. Programar sesiones informativas sobre el autocuidado y salud mental con el psicólogo del establecimiento.';
+    } else if (criticalDim.category === 'Clima Social') {
+      diagnosis = 'Existen problemas de convivencia general, falta de integración y dificultades en la resolución dialogada de desacuerdos. Los estudiantes sienten que hay discriminación o exclusiones intencionadas.';
+      actionPlan = 'Implementar talleres formativos enfocados en la empatía, trabajo en equipo y comunicación asertiva. Involucrar a los profesores jefes en consejos de curso dedicados al Reglamento Interno (RICE).';
+    } else { // Apoyo Docente
+      diagnosis = 'Los estudiantes perciben una distancia con sus profesores y una falta de apoyo frente a problemas académicos o personales. Sienten que sus opiniones no son escuchadas con la suficiente empatía.';
+      actionPlan = 'Realizar una jornada de reflexión técnico-pedagógica (consejo docente) para revisar prácticas de contención emocional en el aula. Facilitar espacios de comunicación asertiva entre el profesor jefe y los alumnos.';
+    }
+
+    return {
+      strongCategory: strongDim.category,
+      strongPercentage: strongDim.percentage,
+      criticalCategory: criticalDim.category,
+      criticalPercentage: criticalDim.percentage,
+      diagnosis,
+      actionPlan
+    };
+  };
+
+  const groupFeedback = getGroupFeedback();
+
+  const getIndividualStats = (resp: DIAResponse) => {
+    const cats: { [key: string]: { sum: number, count: number } } = {
+      'Clima Social': { sum: 0, count: 0 },
+      'Autoestima': { sum: 0, count: 0 },
+      'Seguridad': { sum: 0, count: 0 },
+      'Apoyo Docente': { sum: 0, count: 0 }
+    };
+
+    selectedSurvey.questions.forEach(q => {
+      const val = resp.answers[q.id];
+      if (val !== undefined && cats[q.category]) {
+        cats[q.category].sum += val;
+        cats[q.category].count++;
+      }
+    });
+
+    return Object.keys(cats).map(catName => {
+      const data = cats[catName];
+      const avg = data.count > 0 ? data.sum / data.count : 0;
+      const pct = avg > 0 ? Math.round(((avg - 1) / 4) * 100) : 0;
+      return { category: catName, percentage: pct, average: Number(avg.toFixed(1)) };
+    });
+  };
+
+  const getIndividualRecommendation = (score: number) => {
+    if (score < 2.5) {
+      return {
+        title: 'ALERTA DE RIESGO CRÍTICO',
+        style: 'bg-red-550/10 text-red-700 border-red-200',
+        rec: 'Derivar de inmediato al estudiante al equipo psicosocial (Psicólogo) para realizar una evaluación clínica y de contención de urgencia. Agendar citación formal de apoderado dentro de las primeras 48 horas para coordinar apoyos familiares y/o derivaciones a redes externas (CESFAM, OPD).'
+      };
+    } else if (score < 3.2) {
+      return {
+        title: 'ALERTA DE RIESGO ALTO',
+        style: 'bg-orange-50 text-orange-700 border-orange-250',
+        rec: 'Coordinar entrevista de exploración psicopedagógica con la psicóloga escolar en los próximos 5 días hábiles. Se recomienda integrar al estudiante a talleres socioemocionales de carácter focalizado y monitorear su integración en los recreos.'
+      };
+    } else if (score < 4.0) {
+      return {
+        title: 'SEGUIMIENTO PREVENTIVO',
+        style: 'bg-amber-50 text-amber-705 border-amber-250',
+        rec: 'Mantener monitoreo pasivo en aula por parte del profesor jefe. Reforzar interacciones respetuosas, fomentar su participación activa en dinámicas grupales y motivar su asistencia a talleres preventivos de convivencia.'
+      };
+    } else {
+      return {
+        title: 'ESTADO DE BIENESTAR ÓPTIMO',
+        style: 'bg-emerald-50 text-emerald-700 border-emerald-250',
+        rec: 'El estudiante reporta niveles de autoestima y seguridad altamente favorables. Se recomienda incentivar su participación como líder positivo del curso, promotor de sana convivencia escolar o mediador par de conflictos.'
+      };
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in">
@@ -391,6 +435,55 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
 
           {/* DETAIL COL: Questions distribution charts */}
           <div className="lg:col-span-2 space-y-6">
+
+            {/* INFORME DE RETROALIMENTACIÓN GRUPAL */}
+            {groupFeedback && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                    <Sparkles className="text-indigo-650 w-4 h-4" />
+                    <span>Informe de Retroalimentación del Curso</span>
+                  </h3>
+                  <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                    Auto-Generado
+                  </span>
+                </div>
+ 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Fortaleza Principal</span>
+                    <h4 className="font-bold text-xs text-slate-705">{groupFeedback.strongCategory} ({groupFeedback.strongPercentage}%)</h4>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Esta dimensión destaca positivamente en el curso, indicando un factor protector clave para la convivencia.
+                    </p>
+                  </div>
+                  <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[9px] font-bold text-rose-600 uppercase tracking-wider">Dimensión Crítica</span>
+                    <h4 className="font-bold text-xs text-slate-705">{groupFeedback.criticalCategory} ({groupFeedback.criticalPercentage}%)</h4>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Es el puntaje más bajo del curso. Requiere atención prioritaria y diseño de estrategias reparadoras.
+                    </p>
+                  </div>
+                </div>
+ 
+                <div className="space-y-3 pt-2 text-xs">
+                  <div className="space-y-1">
+                    <strong className="text-slate-800 flex items-center gap-1.5 font-bold">
+                      <BookmarkCheck className="text-indigo-500" size={14} />
+                      Diagnóstico del Clima de Aula:
+                    </strong>
+                    <p className="text-slate-600 leading-relaxed pl-5">{groupFeedback.diagnosis}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <strong className="text-slate-800 flex items-center gap-1.5 font-bold">
+                      <TrendingUp className="text-emerald-500" size={14} />
+                      Plan de Acción Recomendado:
+                    </strong>
+                    <p className="text-slate-600 leading-relaxed pl-5">{groupFeedback.actionPlan}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Chart per question */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
@@ -573,7 +666,12 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {responses.map(res => (
-                      <tr key={res.studentId} className="hover:bg-slate-50/50">
+                      <tr 
+                        key={res.studentId} 
+                        onClick={() => setActiveIndividualResponse(res)}
+                        className="hover:bg-slate-50 cursor-pointer border-b border-slate-100 transition-colors"
+                        title="Haga clic para ver Ficha de Retroalimentación del Estudiante"
+                      >
                         <td className="py-2.5 font-bold text-slate-800">{res.studentName}</td>
                         <td className="py-2.5 text-slate-500">{res.submittedAt}</td>
                         <td className="py-2.5 text-center font-bold font-mono">{res.score} / 5.0</td>
@@ -596,6 +694,149 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* INDIVIDUAL RESPONSE AND FEEDBACK MODAL */}
+      {activeIndividualResponse && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200/80 overflow-hidden animate-zoom-in max-h-[90vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
+                    Ficha de Retroalimentación Individual DIA
+                  </span>
+                  <h3 className="text-base font-black text-slate-800">{activeIndividualResponse.studentName}</h3>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveIndividualResponse(null)}
+                className="text-slate-400 hover:text-slate-700 transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              
+              {/* Overall stats and recommendation */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Puntaje DIA</span>
+                  <span className="text-2xl font-black text-slate-850 mt-1">{activeIndividualResponse.score} / 5.0</span>
+                  <span className={`inline-block text-[9px] font-bold px-2 py-0.2 border rounded-full mt-1.5 ${
+                    activeIndividualResponse.riskStatus === 'Crítico' ? 'bg-red-50 text-red-700 border-red-200' :
+                    activeIndividualResponse.riskStatus === 'Alto' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                    activeIndividualResponse.riskStatus === 'Medio' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  }`}>
+                    RIESGO {activeIndividualResponse.riskStatus.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="md:col-span-2 p-4 rounded-2xl border space-y-1.5 flex flex-col justify-center bg-slate-50/50 border-slate-200">
+                  {(() => {
+                    const recData = getIndividualRecommendation(activeIndividualResponse.score);
+                    return (
+                      <>
+                        <span className={`inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full self-start ${recData.style}`}>
+                          {recData.title}
+                        </span>
+                        <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
+                          {recData.rec}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Dimensional Scores */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Satisfacción por Dimensión</h4>
+                <div className="grid grid-cols-2 gap-3.5">
+                  {getIndividualStats(activeIndividualResponse).map(dim => (
+                    <div key={dim.category} className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-650">{dim.category}</span>
+                        <span className="text-slate-800">{dim.percentage}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-600" style={{ width: `${dim.percentage}%` }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Question list answers detail */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Respuestas Detalladas</h4>
+                <div className="space-y-2">
+                  {selectedSurvey.questions.map((q, idx) => {
+                    const score = activeIndividualResponse.answers[q.id] || 0;
+                    const emojiMap: { [key: number]: string } = { 1: '😡', 2: '🙁', 3: '😐', 4: '🙂', 5: '😀' };
+                    const textMap: { [key: number]: string } = { 
+                      1: 'Muy en desacuerdo', 
+                      2: 'En desacuerdo', 
+                      3: 'Neutral', 
+                      4: 'De acuerdo', 
+                      5: 'Muy de acuerdo' 
+                    };
+
+                    return (
+                      <div 
+                        key={q.id} 
+                        className="bg-white border border-slate-100 p-3 rounded-xl flex items-center justify-between gap-4 text-xs hover:shadow-xs transition-shadow"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-slate-400 font-bold">Pregunta {idx + 1} • {q.category}</span>
+                          <p className="text-slate-800 font-medium">{q.text}</p>
+                        </div>
+                        <div className="shrink-0 flex flex-col items-center justify-center font-bold bg-slate-50 border border-slate-150 rounded-xl px-2.5 py-1.5 min-w-[75px]">
+                          <span className="text-base leading-none">{emojiMap[score] || '❓'}</span>
+                          <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider whitespace-nowrap text-center">
+                            {textMap[score] || 'Sin resp.'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              {activeIndividualResponse.riskStatus === 'Crítico' || activeIndividualResponse.riskStatus === 'Alto' ? (
+                <button
+                  onClick={() => {
+                    handleDeriveToPsychosocial(activeIndividualResponse);
+                    setActiveIndividualResponse(null);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md active:scale-95"
+                >
+                  Derivar Caso a Dupla Psicosocial
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setActiveIndividualResponse(null)}
+                className="px-4 py-2 text-xs font-bold border border-slate-200 bg-white rounded-xl text-slate-650 hover:bg-slate-100 transition-colors"
+              >
+                Cerrar Reporte
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 
