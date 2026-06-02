@@ -921,7 +921,19 @@ export const dbService = {
       throw new Error('El usuario ingresado no está registrado en el sistema.');
     }
 
+    const checkPasswordCleaned = checkPassword.trim();
+
     if (!useMock && auth) {
+      // If there's a custom password assigned by the admin, validate against it
+      if (matchedStaff.password) {
+        if (matchedStaff.password.trim() === checkPasswordCleaned) {
+          console.log("Custom password login success for:", matchedStaff.email);
+          return matchedStaff;
+        } else {
+          throw new Error('Contraseña incorrecta.');
+        }
+      }
+
       try {
         const userCredential = await signInWithEmailAndPassword(auth, matchedStaff.email, checkPassword);
         console.log("Firebase Auth success for user:", userCredential.user.email);
@@ -930,17 +942,25 @@ export const dbService = {
         throw new Error(err.message || 'Contraseña incorrecta.');
       }
     } else {
-      const normalizedPassword = checkPassword.trim();
+      // If there's a custom password assigned by the admin, validate against it
+      if (matchedStaff.password) {
+        if (matchedStaff.password.trim() === checkPasswordCleaned) {
+          return matchedStaff;
+        } else {
+          throw new Error('Contraseña incorrecta.');
+        }
+      }
+
       let isPassValid = false;
 
       const isAdminEmail = matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobiola.cl' || 
                            matchedStaff.email.toLowerCase().trim() === 'franciscojavier.vidal.p@gmail.com';
 
       if (isAdminEmail) {
-        isPassValid = normalizedPassword === '04121988' || normalizedPassword === 'conexia123';
+        isPassValid = checkPasswordCleaned === '04121988' || checkPasswordCleaned === 'conexia123';
       } else {
-        isPassValid = normalizedPassword === 'conexia123' || 
-                      normalizedPassword === matchedStaff.rut.replace(/[^0-9kK]/g, '');
+        isPassValid = checkPasswordCleaned === 'conexia123' || 
+                      checkPasswordCleaned === matchedStaff.rut.replace(/[^0-9kK]/g, '');
       }
 
       if (!isPassValid) {

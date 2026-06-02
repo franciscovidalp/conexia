@@ -99,6 +99,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [staffEmail, setStaffEmail] = useState('');
   const [staffRole, setStaffRole] = useState<UserRole>('Docente');
   const [staffSchool, setStaffSchool] = useState<SchoolType>('');
+  const [staffPassword, setStaffPassword] = useState('');
 
   // CSV parsing state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -261,6 +262,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       setStaffEmail(st.email);
       setStaffRole(st.role);
       setStaffSchool(st.school);
+      setStaffPassword(st.password || '');
     } else {
       setEditingStaff(null);
       setStaffRut('');
@@ -269,6 +271,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       setStaffEmail('');
       setStaffRole('Docente');
       setStaffSchool(schools.length > 0 ? schools[0].name : activeSchool);
+      setStaffPassword('');
     }
     setIsStaffModalOpen(true);
   };
@@ -287,7 +290,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         lastName: staffLastName.trim(),
         email: staffEmail.trim(),
         role: staffRole,
-        school: staffSchool
+        school: staffSchool,
+        password: staffPassword.trim() || undefined
       };
 
       if (editingStaff) {
@@ -1114,6 +1118,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-500 uppercase mb-1">Contraseña de Acceso</label>
+                <input
+                  type="text"
+                  value={staffPassword}
+                  onChange={(e) => setStaffPassword(e.target.value)}
+                  placeholder="Dejar vacío para usar RUT o default"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
