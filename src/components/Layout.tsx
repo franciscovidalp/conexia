@@ -259,11 +259,11 @@ export const Layout: React.FC<LayoutProps> = ({
         <section className="flex-1 overflow-y-auto p-6 md:p-8 relative">
           <div className="max-w-7xl mx-auto w-full h-full space-y-6">
             {isHelpOpen && currentHelp && (
-              <div className="bg-gradient-to-r from-slate-900 to-slate-850 text-white rounded-2xl p-5 shadow-lg border border-slate-800 animate-zoom-in relative overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-950 to-slate-900 text-white rounded-2xl p-5 shadow-lg border border-slate-800/80 animate-zoom-in relative overflow-hidden">
                 {/* Close Button */}
                 <button
                   onClick={() => setIsHelpOpen(false)}
-                  className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                  className="absolute top-4 right-4 text-slate-450 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -278,10 +278,10 @@ export const Layout: React.FC<LayoutProps> = ({
                   <div className="space-y-3">
                     <div>
                       <h3 className="text-sm font-extrabold tracking-tight">Guía de Uso: {currentHelp.title}</h3>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">{currentHelp.desc}</p>
+                      <p className="text-xs text-slate-350 mt-1 leading-relaxed">{currentHelp.desc}</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-200">
                       {currentHelp.steps.map((step, idx) => (
                         <div key={idx} className="flex gap-2 items-start bg-white/5 p-2.5 rounded-xl border border-white/5">
                           <span className="font-mono font-bold text-primary">{idx + 1}.</span>
