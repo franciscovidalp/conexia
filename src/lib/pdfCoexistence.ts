@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { CoexistenceCase, Student, Staff, Activity, PsychosocialCase, ClinicalSession, RiceProtocol } from '../types';
+import type { CoexistenceCase, Student, Staff, Activity, PsychosocialCase, ClinicalSession, RiceProtocol, ManagementObjective, ExternalReferral } from '../types';
 
 // Helper to draw header
 const drawHeader = (doc: jsPDF, school: string, title: string, color: [number, number, number]) => {
@@ -616,3 +616,180 @@ export const exportRiceProtocolPDF = (
 
   doc.save(`conexia_protocolo_${p.id}.pdf`);
 };
+
+export const exportManagementObjectivesReportPDF = (
+  objectives: ManagementObjective[],
+  activities: Activity[],
+  school: string
+) => {
+  const doc = new jsPDF();
+  const themeColor: [number, number, number] = [79, 70, 229]; // indigo-600
+
+  drawHeader(doc, school, 'INFORME DE CUMPLIMIENTO: PLAN DE GESTIÓN', themeColor);
+
+  // Objectives List Section
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59); // slate-800
+  doc.text('RESUMEN DE OBJETIVOS E HITOS DEL PLAN ANUAL', 15, 48);
+
+  const tableBody = objectives.map((o) => {
+    const count = o.associatedActivityIds.length;
+    return [
+      o.title,
+      o.category,
+      o.target,
+      o.status,
+      `${count} taller(es) preventivos`
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 52,
+    head: [['Objetivo / Meta', 'Categoría', 'Alcance', 'Estado', 'Actividades Vinculadas']],
+    body: tableBody,
+    theme: 'striped',
+    headStyles: { fillColor: themeColor },
+    margin: { left: 15, right: 15 }
+  });
+
+  const nextY = (doc as any).lastAutoTable.finalY + 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('DETALLE DE ACTIVIDADES Y PREVENCIÓN VINCULADAS', 15, nextY);
+
+  const activitiesBody: any[] = [];
+  objectives.forEach(o => {
+    const objsActs = activities.filter(a => o.associatedActivityIds.includes(a.id));
+    objsActs.forEach(act => {
+      activitiesBody.push([
+        o.title,
+        act.title,
+        act.date,
+        act.speaker,
+        act.status
+      ]);
+    });
+  });
+
+  if (activitiesBody.length === 0) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('No existen actividades o talleres vinculados a los objetivos del plan aún.', 15, nextY + 6);
+  } else {
+    autoTable(doc, {
+      startY: nextY + 4,
+      head: [['Objetivo del Plan', 'Taller Preventivo Realizado', 'Fecha', 'Responsable', 'Estado']],
+      body: activitiesBody,
+      theme: 'striped',
+      headStyles: { fillColor: [5, 150, 105] }, // emerald-600
+      margin: { left: 15, right: 15 }
+    });
+  }
+
+  doc.save(`conexia_plan_gestion_${school.replace(/\s+/g, '_')}.pdf`);
+};
+
+export const exportExternalReferralPDF = (
+  referral: ExternalReferral,
+  student: Student,
+  professional: Staff
+) => {
+  const doc = new jsPDF();
+  const themeColor: [number, number, number] = [124, 58, 237]; // violet-600
+
+  drawHeader(doc, referral.school, 'FICHA DE DERIVACIÓN INTERSECTORIAL', themeColor);
+
+  // Institution details & Metadata
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59);
+  doc.text('DATOS DE LA INSTITUCIÓN RECEPTORA', 15, 48);
+
+  autoTable(doc, {
+    startY: 52,
+    head: [['Institución de Destino', 'Estado Derivación', 'Fecha de Envío', 'Oficio / Folio N°']],
+    body: [[
+      referral.institution,
+      referral.status,
+      referral.sentDate || 'Pendiente',
+      referral.folioNumber || 'Pendiente'
+    ]],
+    theme: 'striped',
+    headStyles: { fillColor: themeColor },
+    margin: { left: 15, right: 15 }
+  });
+
+  // Student Section
+  const nextY1 = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('ANTECEDENTES PERSONALES DEL ESTUDIANTE', 15, nextY1);
+
+  autoTable(doc, {
+    startY: nextY1 + 4,
+    head: [['Nombre Completo', 'RUT', 'Curso', 'Apoderado / Tutor']],
+    body: [[
+      `${student.firstName} ${student.lastName}`,
+      student.rut,
+      student.grade,
+      student.parentName || 'No Registrado'
+    ]],
+    theme: 'striped',
+    headStyles: { fillColor: themeColor },
+    margin: { left: 15, right: 15 }
+  });
+
+  // Technical Details
+  const nextY2 = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('MOTIVO TÉCNICO DE DERIVACIÓN Y ANTECEDENTES', 15, nextY2);
+
+  // Split long texts for multiline support
+  const reasonLines = doc.splitTextToSize(referral.reason, 180);
+  const measuresLines = doc.splitTextToSize(referral.previousMeasures, 180);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text('1. Síntesis diagnóstica / Motivos detectados:', 15, nextY2 + 6);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 41, 59);
+  let textY = nextY2 + 11;
+  doc.text(reasonLines, 15, textY);
+  textY += reasonLines.length * 5 + 5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(71, 85, 105);
+  doc.text('2. Acciones y medidas adoptadas por el establecimiento:', 15, textY);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 41, 59);
+  doc.text(measuresLines, 15, textY + 5);
+  textY += measuresLines.length * 5 + 10;
+
+  if (referral.observations) {
+    const obsLines = doc.splitTextToSize(referral.observations, 180);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('3. Observaciones / Comentarios adicionales:', 15, textY);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.text(obsLines, 15, textY + 5);
+    textY += obsLines.length * 5 + 10;
+  }
+
+  // Signatures
+  const names = [
+    `${professional.firstName} ${professional.lastName}`,
+    'Dirección del Establecimiento'
+  ];
+  const roles = [
+    professional.role || 'Profesional Dupla Psicosocial',
+    'Firma y Timbre Director(a)'
+  ];
+
+  drawSignatures(doc, names, roles, textY + 10);
+
+  doc.save(`conexia_derivacion_${student.rut}.pdf`);
+};
+

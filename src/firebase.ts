@@ -19,7 +19,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, RiceProtocol } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, RiceProtocol, ManagementObjective, ExternalReferral } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -242,6 +242,51 @@ const INITIAL_RICE_PROTOCOLS: RiceProtocol[] = [
   }
 ];
 
+const INITIAL_OBJECTIVES: ManagementObjective[] = [
+  {
+    id: "obj-1",
+    title: "Implementar Programa de Prevención del Cyberbullying",
+    category: "Prevención",
+    target: "7° Básico a 4° Medio",
+    description: "Realizar talleres preventivos sobre el uso responsable de redes sociales y consecuencias del ciberacoso.",
+    status: "En Proceso",
+    associatedActivityIds: ["act-001"],
+    school: "Colegio San Nicolás",
+    createdAt: "2026-03-01T08:00:00Z"
+  },
+  {
+    id: "obj-2",
+    title: "Fortalecer la Alianza Familia-Escuela",
+    category: "Formación",
+    target: "Todo el Establecimiento",
+    description: "Ejecutar jornadas formativas para apoderados sobre pautas de crianza respetuosa y contención emocional.",
+    status: "No Iniciado",
+    associatedActivityIds: [],
+    school: "Colegio San Nicolás",
+    createdAt: "2026-03-10T09:00:00Z"
+  }
+];
+
+const INITIAL_REFERRALS: ExternalReferral[] = [
+  {
+    id: "ref-1",
+    studentId: "21.564.912-3",
+    studentName: "Benjamín Cortés Salinas",
+    grade: "3° Medio A",
+    school: "Colegio San Nicolás",
+    institution: "OPD",
+    reason: "Se deriva por sospecha grave de vulneración de derechos en el entorno familiar, evidenciada tras entrevistas y reporte de desregulación con porte de objeto peligroso.",
+    previousMeasures: "Entrevistas individuales con la psicóloga escolar, citación y reunión presencial con el apoderado, aplicación de protocolo de resguardo RICE.",
+    status: "Enviado",
+    sentDate: "2026-05-22",
+    folioNumber: "OF-2026-041",
+    observations: "Pendiente respuesta formal de OPD Concepción respecto a medidas de protección familiar.",
+    professionalId: "14.230.119-K",
+    professionalName: "María Paz Toledo Bascuñán",
+    createdAt: "2026-05-22T10:00:00Z"
+  }
+];
+
 const getLocalData = <T>(key: string, initial: T[]): T[] => {
   const data = localStorage.getItem(`conexia_${key}`);
   if (!data) {
@@ -281,8 +326,18 @@ export const dbService = {
       for (const cs of INITIAL_COEXISTENCE_CASES) {
         await setDoc(doc(db, 'coexistence_cases', cs.id), cs);
       }
+
+      // Seed objectives
+      for (const obj of INITIAL_OBJECTIVES) {
+        await setDoc(doc(db, 'objectives', obj.id), obj);
+      }
+
+      // Seed referrals
+      for (const ref of INITIAL_REFERRALS) {
+        await setDoc(doc(db, 'referrals', ref.id), ref);
+      }
       
-      console.log("Firestore successfully seeded with schools, staff, students, and cases!");
+      console.log("Firestore successfully seeded with schools, staff, students, cases, objectives and referrals!");
     } catch (err) {
       console.error("Error during Firestore seeding:", err);
     }
@@ -1372,6 +1427,126 @@ export const dbService = {
     return all.filter(a => a.surveyId === surveyId && a.school === school && a.grade === grade);
   },
 
+  // --- MANAGEMENT OBJECTIVES CRUD ---
+  async getManagementObjectives(school: string): Promise<ManagementObjective[]> {
+    if (!useMock) {
+      try {
+        const q = query(collection(db, 'objectives'), where('school', '==', school));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as ManagementObjective));
+      } catch (err) {
+        console.error("Firestore error loading objectives:", err);
+      }
+    }
+    const all = getLocalData<ManagementObjective>('objectives', INITIAL_OBJECTIVES);
+    return all.filter(o => o.school === school);
+  },
+
+  async createManagementObjective(obj: Omit<ManagementObjective, 'id' | 'createdAt'>): Promise<ManagementObjective> {
+    const newObj: ManagementObjective = {
+      ...obj,
+      id: `obj-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    if (!useMock) {
+      try {
+        await setDoc(doc(db, 'objectives', newObj.id), newObj);
+      } catch (err) {
+        console.error("Firestore create objective failed:", err);
+      }
+    }
+    const all = getLocalData<ManagementObjective>('objectives', INITIAL_OBJECTIVES);
+    all.push(newObj);
+    saveLocalData('objectives', all);
+    return newObj;
+  },
+
+  async updateManagementObjective(id: string, data: Partial<ManagementObjective>): Promise<void> {
+    if (!useMock) {
+      try {
+        await updateDoc(doc(db, 'objectives', id), data);
+      } catch (err) {
+        console.error("Firestore update objective failed:", err);
+      }
+    }
+    const all = getLocalData<ManagementObjective>('objectives', INITIAL_OBJECTIVES);
+    const updated = all.map(o => o.id === id ? { ...o, ...data } : o);
+    saveLocalData('objectives', updated);
+  },
+
+  async deleteManagementObjective(id: string): Promise<void> {
+    if (!useMock) {
+      try {
+        await deleteDoc(doc(db, 'objectives', id));
+      } catch (err) {
+        console.error("Firestore delete objective failed:", err);
+      }
+    }
+    const all = getLocalData<ManagementObjective>('objectives', INITIAL_OBJECTIVES);
+    const filtered = all.filter(o => o.id !== id);
+    saveLocalData('objectives', filtered);
+  },
+
+  // --- EXTERNAL REFERRALS CRUD ---
+  async getExternalReferrals(school: string): Promise<ExternalReferral[]> {
+    if (!useMock) {
+      try {
+        const q = query(collection(db, 'referrals'), where('school', '==', school));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as ExternalReferral));
+      } catch (err) {
+        console.error("Firestore error loading referrals:", err);
+      }
+    }
+    const all = getLocalData<ExternalReferral>('referrals', INITIAL_REFERRALS);
+    return all.filter(r => r.school === school);
+  },
+
+  async createExternalReferral(ref: Omit<ExternalReferral, 'id' | 'createdAt'>): Promise<ExternalReferral> {
+    const newRef: ExternalReferral = {
+      ...ref,
+      id: `ref-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    if (!useMock) {
+      try {
+        await setDoc(doc(db, 'referrals', newRef.id), newRef);
+      } catch (err) {
+        console.error("Firestore create referral failed:", err);
+      }
+    }
+    const all = getLocalData<ExternalReferral>('referrals', INITIAL_REFERRALS);
+    all.push(newRef);
+    saveLocalData('referrals', all);
+    return newRef;
+  },
+
+  async updateExternalReferral(id: string, data: Partial<ExternalReferral>): Promise<void> {
+    if (!useMock) {
+      try {
+        await updateDoc(doc(db, 'referrals', id), data);
+      } catch (err) {
+        console.error("Firestore update referral failed:", err);
+      }
+    }
+    const all = getLocalData<ExternalReferral>('referrals', INITIAL_REFERRALS);
+    const updated = all.map(r => r.id === id ? { ...r, ...data } : r);
+    saveLocalData('referrals', updated);
+  },
+
+  async deleteExternalReferral(id: string): Promise<void> {
+    if (!useMock) {
+      try {
+        await deleteDoc(doc(db, 'referrals', id));
+      } catch (err) {
+        console.error("Firestore delete referral failed:", err);
+      }
+    }
+    const all = getLocalData<ExternalReferral>('referrals', INITIAL_REFERRALS);
+    const filtered = all.filter(r => r.id !== id);
+    saveLocalData('referrals', filtered);
+  },
+
   async clearAllData(): Promise<void> {
     // Clear LocalStorage
     localStorage.removeItem('conexia_schools');
@@ -1384,6 +1559,8 @@ export const dbService = {
     localStorage.removeItem('conexia_messages');
     localStorage.removeItem('conexia_meetings');
     localStorage.removeItem('conexia_rice_protocols');
+    localStorage.removeItem('conexia_objectives');
+    localStorage.removeItem('conexia_referrals');
 
     const defaultAdmin: Staff = {
       id: "admin-2",
@@ -1402,7 +1579,7 @@ export const dbService = {
     if (!useMock && db) {
       try {
         console.log("Limpiando colecciones de Firestore...");
-        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers', 'rice_protocols'];
+        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers', 'rice_protocols', 'objectives', 'referrals'];
         for (const colName of collections) {
           const snap = await getDocs(collection(db, colName));
           for (const d of snap.docs) {

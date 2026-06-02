@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { dbService } from './firebase';
-import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol } from './types';
+import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol, ManagementObjective, ExternalReferral } from './types';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
@@ -21,6 +21,8 @@ const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ d
 const ClimateDiagnosisModule = lazy(() => import('./components/ClimateDiagnosisModule').then(m => ({ default: m.ClimateDiagnosisModule })));
 const PublicSurveyForm = lazy(() => import('./components/PublicSurveyForm').then(m => ({ default: m.PublicSurveyForm })));
 const RiceProtocolsModule = lazy(() => import('./components/RiceProtocolsModule').then(m => ({ default: m.RiceProtocolsModule })));
+const ManagementModule = lazy(() => import('./components/ManagementModule').then(m => ({ default: m.ManagementModule })));
+const DerivationsModule = lazy(() => import('./components/DerivationsModule').then(m => ({ default: m.DerivationsModule })));
 
 
 function App() {
@@ -40,6 +42,8 @@ function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [psychosocialCases, setPsychosocialCases] = useState<PsychosocialCase[]>([]);
   const [riceProtocols, setRiceProtocols] = useState<RiceProtocol[]>([]);
+  const [managementObjectives, setManagementObjectives] = useState<ManagementObjective[]>([]);
+  const [externalReferrals, setExternalReferrals] = useState<ExternalReferral[]>([]);
   const [cacheStatus, setCacheStatus] = useState<'loading' | 'cached' | 'error'>('loading');
 
   // 10 Color Theme state
@@ -90,6 +94,8 @@ function App() {
       const loadedActivities = await dbService.getActivities(school);
       const loadedPsychosocial = await dbService.getPsychosocialCases(school);
       const loadedProtocols = await dbService.getRiceProtocols(school);
+      const loadedObjectives = await dbService.getManagementObjectives(school);
+      const loadedReferrals = await dbService.getExternalReferrals(school);
  
       setStudents(loadedStudents);
       setStaff(loadedStaff);
@@ -97,6 +103,8 @@ function App() {
       setActivities(loadedActivities || []);
       setPsychosocialCases(loadedPsychosocial || []);
       setRiceProtocols(loadedProtocols || []);
+      setManagementObjectives(loadedObjectives || []);
+      setExternalReferrals(loadedReferrals || []);
       setCacheStatus('cached');
     } catch (e) {
       console.error("Error al cargar la base de datos: ", e);
@@ -288,6 +296,26 @@ function App() {
               activeSchool={activeSchool}
               loggedInUser={loggedInUser}
               staff={staff}
+            />
+          )}
+
+          {activeTab === 'management' && (
+            <ManagementModule
+              activeSchool={activeSchool}
+              objectives={managementObjectives}
+              onObjectivesChange={setManagementObjectives}
+              activities={activities}
+            />
+          )}
+
+          {activeTab === 'derivations' && (
+            <DerivationsModule
+              activeSchool={activeSchool}
+              referrals={externalReferrals}
+              onReferralsChange={setExternalReferrals}
+              students={students}
+              staff={staff}
+              loggedInUser={loggedInUser!}
             />
           )}
         </Suspense>

@@ -183,3 +183,34 @@ export interface RiceProtocol {
   createdAt: string;
 }
 
+export interface ManagementObjective {
+  id: string;
+  title: string;
+  category: 'Prevención' | 'Formación' | 'Intervención' | 'Redes' | 'Otro';
+  target: string;
+  description: string;
+  status: 'No Iniciado' | 'En Proceso' | 'Completado';
+  associatedActivityIds: string[];
+  school: SchoolType;
+  createdAt: string;
+}
+
+export interface ExternalReferral {
+  id: string;
+  studentId: string;
+  studentName: string;
+  grade: string;
+  school: SchoolType;
+  institution: 'OPD' | 'CESFAM' | 'Tribunal de Familia' | 'Carabineros' | 'Oficina Local de Niñez (OLN)' | 'Otro';
+  reason: string;
+  previousMeasures: string;
+  status: 'Pendiente' | 'Enviado' | 'En Revisión' | 'Resuelto' | 'Archivado';
+  sentDate?: string;
+  folioNumber?: string;
+  observations?: string;
+  professionalId: string;
+  professionalName: string;
+  createdAt: string;
+}
+
+

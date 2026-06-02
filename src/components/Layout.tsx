@@ -12,7 +12,9 @@ import {
   BarChart3,
   ClipboardCheck,
   HelpCircle,
-  X
+  X,
+  ClipboardList,
+  Network
 } from 'lucide-react';
 import type { SchoolType, UserRole, Staff, School } from '../types';
 
@@ -38,6 +40,16 @@ const MODULE_HELP: Record<string, { title: string; desc: string; steps: string[]
       "Revisa la retroalimentación grupal automática con fortalezas y áreas críticas del aula.",
       "Haz clic en cualquier fila para ver el desglose Likert individual y su recomendación clínica.",
       "Deriva con un solo clic a estudiantes con indicadores de riesgo crítico directo a la Dupla Psicosocial."
+    ]
+  },
+  management: {
+    title: "Plan de Gestión",
+    desc: "Planificación anual de objetivos de convivencia escolar, seguimiento de estado por categoría y vinculación directa con actividades preventivas.",
+    steps: [
+      "Define objetivos anuales categorizados (Prevención, Formación, Intervención, Redes u Otro).",
+      "Asocia cada objetivo a actividades preventivas planificadas en el módulo de Vínculo Escolar.",
+      "Actualiza el estado de avance (No Iniciado, En Proceso, Completado) de cada objetivo.",
+      "Exporta el Plan de Gestión Anual de Convivencia Escolar consolidado en PDF con un clic."
     ]
   },
   activities: {
@@ -78,6 +90,16 @@ const MODULE_HELP: Record<string, { title: string; desc: string; steps: string[]
       "Haz clic en un expediente para examinar el historial familiar y de entrevistas.",
       "Registra bitácoras detalladas para cada sesión con el alumno, apoderados o redes externas.",
       "Exporta el reporte clínico completo en PDF con marcas temporales resguardadas."
+    ]
+  },
+  derivations: {
+    title: "Derivación Externa",
+    desc: "Gestión y seguimiento formal de derivaciones de estudiantes a redes intersectoriales como OPD, CESFAM, Tribunales de Familia, entre otros.",
+    steps: [
+      "Selecciona primero el Curso del estudiante para filtrar y cargar la nómina de alumnos.",
+      "Registra los motivos de derivación y las medidas previas que el establecimiento ya aplicó.",
+      "Ingresa el Folio de derivación, la fecha de envío y el estado actual de avance del caso.",
+      "Genera la Ficha Oficial de Derivación Intersectorial en PDF firmada digitalmente para el envío formal."
     ]
   },
   calendar: {
@@ -126,10 +148,12 @@ export const Layout: React.FC<LayoutProps> = ({
 
   const menuItems = [
     { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },
+    { id: 'management', label: 'Plan de Gestión', icon: ClipboardList },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
     { id: 'protocols', label: 'Protocolos RICE', icon: ClipboardCheck },
     { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
+    { id: 'derivations', label: 'Derivación Externa', icon: Network },
     { id: 'calendar', label: 'Calendario', icon: CalendarRange },
     { id: 'messaging', label: 'Mensajería', icon: MessageSquare },
     { id: 'settings', label: 'Ajustes y Carga', icon: Settings }
