@@ -52,13 +52,11 @@ export const Layout: React.FC<LayoutProps> = ({
       <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-xl border-r border-slate-800">
         <div>
           {/* Brand header */}
-          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-extrabold shadow-md shadow-primary/20 transition-all duration-300">
-              CX
-            </div>
+          <div className="p-5 border-b border-slate-800 flex items-center gap-3">
+            <img src="/logo.png" alt="Conexia Logo" className="w-10 h-10 object-contain rounded-lg bg-white p-0.5" />
             <div>
-              <h1 className="font-bold text-white text-lg leading-tight tracking-tight">CONEXIA</h1>
-              <p className="text-xs text-slate-500">Convivencia y Apoyo</p>
+              <h1 className="font-bold text-white text-base leading-tight tracking-tight">CONEXIA</h1>
+              <p className="text-[10px] text-slate-500">Convivencia Escolar</p>
             </div>
           </div>
 

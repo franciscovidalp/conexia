@@ -68,7 +68,8 @@ const MOCK_STAFF: Staff[] = [
   { id: "10.992.812-4", rut: "10.992.812-4", firstName: "Sofía", lastName: "Castro Ruiz", school: "Colegio San Nicolás", role: "Director", email: "sofia.castro@sannicolas.cl" },
   { id: "13.111.459-2", rut: "13.111.459-2", firstName: "Alejandro", lastName: "Guzmán Ortíz", school: "Colegio BioBío", role: "Convivencia", email: "alejandro.guzman@biobio.cl" },
   { id: "15.223.902-1", rut: "15.223.902-1", firstName: "Camila", lastName: "Rojas Miranda", school: "Colegio BioBío", role: "Psicólogo", email: "camila.rojas@biobio.cl" },
-  { id: "16.890.312-K", rut: "16.890.312-K", firstName: "Eduardo", lastName: "Salazar Garrido", school: "Colegio BioBío", role: "Trabajador Social", email: "eduardo.salazar@biobio.cl" }
+  { id: "16.890.312-K", rut: "16.890.312-K", firstName: "Eduardo", lastName: "Salazar Garrido", school: "Colegio BioBío", role: "Trabajador Social", email: "eduardo.salazar@biobio.cl" },
+  { id: "admin-1", rut: "9.999.999-9", firstName: "Administrador", lastName: "General", school: "Colegio BioBío", role: "Administrador", email: "admin@colegiobiobiola.cl" }
 ];
 
 const INITIAL_COEXISTENCE_CASES: CoexistenceCase[] = [
@@ -437,6 +438,58 @@ export const dbService = {
       }
     }
     return getLocalData<Staff>('staff', MOCK_STAFF);
+  },
+
+  async createStaff(staff: Omit<Staff, 'id'>): Promise<Staff> {
+    const newStaff: Staff = {
+      ...staff,
+      id: staff.rut.trim()
+    };
+    if (!useMock) {
+      try {
+        await addDoc(collection(db, 'staff'), newStaff);
+      } catch (err) {
+        console.error("Firestore staff create failed:", err);
+      }
+    }
+    const all = getLocalData<Staff>('staff', MOCK_STAFF);
+    const existingIdx = all.findIndex(st => st.rut === newStaff.rut);
+    if (existingIdx !== -1) {
+      all[existingIdx] = newStaff;
+    } else {
+      all.push(newStaff);
+    }
+    saveLocalData('staff', all);
+    return newStaff;
+  },
+
+  async updateStaff(id: string, updates: Partial<Staff>): Promise<void> {
+    if (!useMock) {
+      try {
+        await updateDoc(doc(db, 'staff', id), updates);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const all = getLocalData<Staff>('staff', MOCK_STAFF);
+    const idx = all.findIndex(st => st.id === id || st.rut === id);
+    if (idx !== -1) {
+      all[idx] = { ...all[idx], ...updates };
+      saveLocalData('staff', all);
+    }
+  },
+
+  async deleteStaff(id: string): Promise<void> {
+    if (!useMock) {
+      try {
+        await deleteDoc(doc(db, 'staff', id));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const all = getLocalData<Staff>('staff', MOCK_STAFF);
+    const filtered = all.filter(st => st.id !== id && st.rut !== id);
+    saveLocalData('staff', filtered);
   },
 
   // --- INCIDENCIAS CRUD (CONVIVENCIA) ---

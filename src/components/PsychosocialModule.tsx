@@ -529,7 +529,7 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
                   required
                 >
                   <option value="">Seleccione Profesional...</option>
-                  {staff.filter(st => st.role === 'Psicólogo' || st.role === 'Trabajador Social' || st.role === 'Convivencia').map(st => (
+                  {staff.filter(st => st.role === 'Psicólogo' || st.role === 'Trabajador Social' || st.role === 'Convivencia' || st.role === 'Orientador' || st.role === 'Administrador').map(st => (
                     <option key={st.rut} value={st.rut}>{st.firstName} {st.lastName} ({st.role})</option>
                   ))}
                 </select>

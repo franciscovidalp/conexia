@@ -189,6 +189,7 @@ function App() {
             onRefreshStudents={refreshStudentsState}
             activeTheme={activeTheme}
             setActiveTheme={setActiveTheme}
+            loggedInUser={loggedInUser}
           />
         )}
       </Layout>

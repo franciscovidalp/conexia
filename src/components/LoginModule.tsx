@@ -42,8 +42,13 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
   }, []);
 
   const handleAutofill = (selectedStaff: Staff) => {
-    setRut(selectedStaff.rut);
-    setPassword('conexia123');
+    if (selectedStaff.email === 'admin@colegiobiobiola.cl') {
+      setRut(selectedStaff.email);
+      setPassword('04121988');
+    } else {
+      setRut(selectedStaff.rut);
+      setPassword('conexia123');
+    }
     toast.success(`Datos cargados para: ${selectedStaff.firstName}`);
   };
 
@@ -55,7 +60,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
     e.preventDefault();
     
     if (!rut.trim()) {
-      toast.error('Por favor, ingrese su RUT.');
+      toast.error('Por favor, ingrese su RUT o correo.');
       return;
     }
     if (!password.trim()) {
@@ -63,24 +68,39 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
       return;
     }
 
-    // Standardize RUT for search (only digits and K)
+    const inputCleaned = rut.trim().toLowerCase();
+    const isEmailInput = inputCleaned.includes('@');
     const cleanInputRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
 
     // Look for user
     const matchedStaff = staffList.find(st => {
-      const cleanStaffRut = st.rut.replace(/[^0-9kK]/g, '').toUpperCase();
-      return cleanStaffRut === cleanInputRut;
+      if (isEmailInput) {
+        return st.email.toLowerCase().trim() === inputCleaned;
+      } else {
+        const cleanStaffRut = st.rut.replace(/[^0-9kK]/g, '').toUpperCase();
+        return cleanStaffRut === cleanInputRut;
+      }
     });
 
     if (!matchedStaff) {
-      toast.error('El RUT ingresado no está registrado en el sistema.');
+      toast.error('El usuario ingresado no está registrado.');
       return;
     }
 
-    // Secure password check (conexia123 as test password for all seeded accounts,
-    // or we can allow their own RUT as fallback)
+    // Secure password check
     const normalizedPassword = password.trim();
-    const isPassValid = normalizedPassword === 'conexia123' || normalizedPassword === matchedStaff.rut.replace(/[^0-9kK]/g, '');
+    let isPassValid = false;
+
+    // Admin account validation
+    const isAdminEmail = matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobiola.cl' || 
+                         matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobio.cl';
+
+    if (isAdminEmail) {
+      isPassValid = normalizedPassword === '04121988';
+    } else {
+      isPassValid = normalizedPassword === 'conexia123' || 
+                    normalizedPassword === matchedStaff.rut.replace(/[^0-9kK]/g, '');
+    }
 
     if (!isPassValid) {
       toast.error('Contraseña incorrecta.');
@@ -94,10 +114,8 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-4 animate-pulse">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-650 flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-500/20">
-            CX
-          </div>
+        <div className="flex flex-col items-center gap-4">
+          <img src="/logo.png" alt="Conexia Logo" className="w-16 h-16 object-contain bg-white rounded-xl p-1 animate-pulse" />
           <span className="text-xs text-slate-400 font-semibold uppercase tracking-widest">Iniciando Portal de Seguridad...</span>
         </div>
       </div>
@@ -116,9 +134,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
         
         {/* Branding header */}
         <div className="flex flex-col items-center text-center gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-650 flex items-center justify-center text-white font-extrabold text-3xl shadow-2xl shadow-indigo-500/20">
-            CX
-          </div>
+          <img src="/logo.png" alt="Conexia Logo" className="w-32 h-32 object-contain bg-white rounded-3xl p-2 shadow-2xl shadow-indigo-500/15 border border-slate-800" />
           <div>
             <h1 className="font-black text-2xl text-white tracking-tight">CONEXIA</h1>
             <p className="text-xs text-slate-400 mt-1">Convivencia Escolar y Apoyo Psicosocial</p>
@@ -131,7 +147,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
           <div>
             <span className="font-bold text-slate-200">Acceso Seguro Conexia</span>
             <p className="text-indigo-300/80 mt-1">
-              Ingrese su RUT y contraseña asignada para acceder al portal de su respectivo establecimiento.
+              Ingrese su RUT o Correo y contraseña asignada para acceder al portal de su respectivo establecimiento.
             </p>
           </div>
         </div>
@@ -139,19 +155,19 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* RUT Input */}
+          {/* RUT or Email Input */}
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <User size={12} className="text-indigo-400" />
-              <span>RUT Funcionario</span>
+              <span>RUT o Correo Electrónico</span>
             </label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="12.345.678-K"
+                placeholder="Ej: 12.345.678-K o admin@colegiobiobiola.cl"
                 value={rut}
                 onChange={handleRutChange}
-                className="w-full bg-slate-850 text-white rounded-xl border border-slate-700 p-3 pl-3 pr-10 text-sm focus:border-indigo-500 placeholder:text-slate-600 focus:bg-slate-900 focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-slate-850 text-white rounded-xl border border-slate-700 p-3 pl-3 pr-10 text-sm focus:border-indigo-500 placeholder:text-slate-655 focus:bg-slate-900 focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -210,7 +226,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
               <div className="flex gap-2 items-start text-[10px] text-slate-400 leading-normal pb-2">
                 <Info size={14} className="text-indigo-400 shrink-0 mt-0.5" />
                 <span>
-                  Haz clic en <span className="font-bold text-indigo-400">Autocompletar</span> en cualquiera de las cuentas de prueba para iniciar sesión. La contraseña de prueba general es <code className="bg-slate-900 text-slate-200 px-1 py-0.5 rounded font-mono font-bold">conexia123</code>.
+                  Haz clic en <span className="font-bold text-indigo-400">Autocompletar</span> en cualquiera de las cuentas de prueba. La contraseña de prueba general es <code className="bg-slate-900 text-slate-200 px-1 py-0.5 rounded font-mono font-bold">conexia123</code> (excepto la de Administrador, que usa <code className="bg-slate-900 text-slate-200 px-1 py-0.5 rounded font-mono font-bold">04121988</code>).
                 </span>
               </div>
 
@@ -221,7 +237,9 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
                     <p className="text-[10px] text-slate-400 truncate">
                       {st.role} • <span className="text-indigo-400/80">{st.school}</span>
                     </p>
-                    <p className="text-[9px] font-mono text-slate-500 mt-0.5">RUT: {st.rut}</p>
+                    <p className="text-[9px] font-mono text-slate-500 mt-0.5">
+                      {st.email === 'admin@colegiobiobiola.cl' ? `Email: ${st.email}` : `RUT: ${st.rut}`}
+                    </p>
                   </div>
                   <button
                     type="button"

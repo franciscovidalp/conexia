@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Upload, 
@@ -12,7 +12,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { School, Student, SchoolType } from '../types';
+import type { School, Student, SchoolType, Staff, UserRole } from '../types';
 import toast from 'react-hot-toast';
 
 export interface ColorTheme {
@@ -47,6 +47,7 @@ interface SettingsModuleProps {
   onRefreshStudents: () => void;
   activeTheme: ColorTheme;
   setActiveTheme: (theme: ColorTheme) => void;
+  loggedInUser: Staff | null;
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({
@@ -56,9 +57,19 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   students,
   onRefreshStudents,
   activeTheme,
-  setActiveTheme
+  setActiveTheme,
+  loggedInUser
 }) => {
-  const [activeTab, setActiveTab] = useState<'themes' | 'schools' | 'students'>('themes');
+  const [activeTab, setActiveTab] = useState<'themes' | 'schools' | 'students' | 'staff'>('themes');
+
+  const isAdmin = loggedInUser?.role === 'Administrador';
+
+  // Redirect non-admins if they try to access admin tabs
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'schools' || activeTab === 'staff')) {
+      setActiveTab('themes');
+    }
+  }, [isAdmin, activeTab]);
 
   // School Form State
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
@@ -76,6 +87,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [studentGrade, setStudentGrade] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
 
+  // Staff Form State
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [staffRut, setStaffRut] = useState('');
+  const [staffFirstName, setStaffFirstName] = useState('');
+  const [staffLastName, setStaffLastName] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffRole, setStaffRole] = useState<UserRole>('Docente');
+  const [staffSchool, setStaffSchool] = useState<SchoolType>('');
+
   // CSV parsing state
   const [csvFile, setCsvFile] = useState<File | null>(null);
 
@@ -84,6 +106,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('Todos');
 
   const grades = Array.from(new Set(students.map(s => s.grade))).sort();
+
+  // Load staff list
+  const loadStaffList = async () => {
+    try {
+      const list = await dbService.getAllStaff();
+      setStaffList(list);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    loadStaffList();
+  }, []);
 
   // ----------------------------------------------------
   // SCHOOL METHODS
@@ -216,6 +252,77 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   // ----------------------------------------------------
+  // STAFF METHODS
+  // ----------------------------------------------------
+  const handleOpenStaffModal = (st: Staff | null = null) => {
+    if (st) {
+      setEditingStaff(st);
+      setStaffRut(st.rut);
+      setStaffFirstName(st.firstName);
+      setStaffLastName(st.lastName);
+      setStaffEmail(st.email);
+      setStaffRole(st.role);
+      setStaffSchool(st.school);
+    } else {
+      setEditingStaff(null);
+      setStaffRut('');
+      setStaffFirstName('');
+      setStaffLastName('');
+      setStaffEmail('');
+      setStaffRole('Docente');
+      setStaffSchool(schools.length > 0 ? schools[0].name : activeSchool);
+    }
+    setIsStaffModalOpen(true);
+  };
+
+  const handleSaveStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffRut.trim() || !staffFirstName.trim() || !staffLastName.trim() || !staffEmail.trim()) {
+      toast.error('Complete todos los campos del formulario.');
+      return;
+    }
+
+    try {
+      const payload = {
+        rut: staffRut.trim(),
+        firstName: staffFirstName.trim(),
+        lastName: staffLastName.trim(),
+        email: staffEmail.trim(),
+        role: staffRole,
+        school: staffSchool
+      };
+
+      if (editingStaff) {
+        await dbService.updateStaff(editingStaff.id, payload);
+        toast.success('Funcionario actualizado.');
+      } else {
+        await dbService.createStaff(payload);
+        toast.success('Nuevo funcionario registrado.');
+      }
+      setIsStaffModalOpen(false);
+      loadStaffList();
+    } catch (err) {
+      toast.error('Error al registrar funcionario.');
+    }
+  };
+
+  const handleDeleteStaff = async (id: string, name: string) => {
+    if (name === 'Administrador General' || id === 'admin-1') {
+      toast.error('No se puede eliminar la cuenta del Administrador.');
+      return;
+    }
+    if (window.confirm(`¿Seguro que desea eliminar el acceso de ${name}?`)) {
+      try {
+        await dbService.deleteStaff(id);
+        toast.success('Cuenta de acceso eliminada.');
+        loadStaffList();
+      } catch (err) {
+        toast.error('Error al eliminar funcionario.');
+      }
+    }
+  };
+
+  // ----------------------------------------------------
   // CSV FILE PARSING
   // ----------------------------------------------------
   const handleCSVUpload = async (e: React.FormEvent) => {
@@ -248,16 +355,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     reader.readAsText(csvFile);
   };
 
-  // Safe manual parsing for CSV supporting both legacy format and Ministerial/Excel format
   const parseCSVText = (text: string) => {
     const lines = text.split('\n');
     if (lines.length < 2) return [];
 
-    // Detect delimiter dynamically
     const firstLine = lines[0];
     const delimiter = firstLine.includes(';') ? ';' : ',';
 
-    // Parse header and standardize
     const headers = firstLine.split(delimiter).map(h => h.trim().toLowerCase().replace(/["']/g, ''));
     const result: any[] = [];
 
@@ -272,7 +376,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         obj[header] = values[index] || '';
       });
 
-      // Check if it matches Excel/Ministerial format: run, nombres, apellido paterno, desc grado, etc.
       const isExcelFormat = ('run' in obj) && ('nombres' in obj);
 
       let rut = '';
@@ -297,7 +400,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         
         email = obj['email'] || '';
       } else {
-        // Fallback to legacy layout: rut, nombre, apellido, curso, email
         rut = obj['rut'] || '';
         nombre = obj['nombre'] || '';
         apellido = obj['apellido'] || '';
@@ -333,9 +435,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <Palette className="text-primary" />
-            <span>Ajustes y Carga de Datos</span>
+            <span>Ajustes del Sistema</span>
           </h2>
-          <p className="text-sm text-slate-500">Configuración global del diseño de Conexia, gestión de establecimientos y matrícula masiva.</p>
+          <p className="text-sm text-slate-500">Configuración global del diseño de Conexia, gestión de matrícula y perfiles de acceso.</p>
         </div>
       </div>
 
@@ -343,34 +445,50 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       <div className="flex gap-2 border-b border-slate-200 pb-px">
         <button
           onClick={() => setActiveTab('themes')}
-          className={`pb-3 px-4 text-sm font-semibold transition-all relative ${
+          className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
             activeTab === 'themes' 
-              ? 'text-primary border-b-2 border-primary' 
+              ? 'text-primary border-b-2 border-primary font-bold' 
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           1. Paleta de Colores (Temas)
         </button>
-        <button
-          onClick={() => setActiveTab('schools')}
-          className={`pb-3 px-4 text-sm font-semibold transition-all relative ${
-            activeTab === 'schools' 
-              ? 'text-primary border-b-2 border-primary' 
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          2. Colegios (Establecimientos)
-        </button>
+
         <button
           onClick={() => setActiveTab('students')}
-          className={`pb-3 px-4 text-sm font-semibold transition-all relative ${
+          className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
             activeTab === 'students' 
-              ? 'text-primary border-b-2 border-primary' 
+              ? 'text-primary border-b-2 border-primary font-bold' 
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          3. Gestión de Matrícula (Alumnos)
+          2. Gestión de Matrícula (Alumnos)
         </button>
+
+        {isAdmin && (
+          <>
+            <button
+              onClick={() => setActiveTab('schools')}
+              className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
+                activeTab === 'schools' 
+                  ? 'text-primary border-b-2 border-primary font-bold' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              3. Colegios (Establecimientos)
+            </button>
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
+                activeTab === 'staff' 
+                  ? 'text-primary border-b-2 border-primary font-bold' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              4. Control de Usuarios (Personal)
+            </button>
+          </>
+        )}
       </div>
 
       {/* ---------------------------------------------------- */}
@@ -393,7 +511,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   className={`flex flex-col items-center p-4 border rounded-2xl text-center gap-3 transition-all relative group cursor-pointer ${
                     isSelected 
                       ? 'border-primary bg-primary-light/10 ring-2 ring-primary' 
-                      : 'border-slate-200 hover:border-slate-350 bg-slate-50'
+                      : 'border-slate-200 hover:border-slate-355 bg-slate-50'
                   }`}
                 >
                   <div className={`w-12 h-12 rounded-full ${theme.previewBg} shadow-md flex items-center justify-center text-white`}>
@@ -411,136 +529,76 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       )}
 
       {/* ---------------------------------------------------- */}
-      {/* TAB 2: SCHOOLS LIST CRUD */}
-      {/* ---------------------------------------------------- */}
-      {activeTab === 'schools' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6 animate-in fade-in">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="font-bold text-lg text-slate-800">Colegios Asociados</h3>
-              <p className="text-xs text-slate-500">Administra los establecimientos educacionales que operan sobre Conexia.</p>
-            </div>
-            <button
-              onClick={() => handleOpenSchoolModal()}
-              className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all"
-            >
-              <Plus size={16} />
-              <span>Agregar Colegio</span>
-            </button>
-          </div>
-
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
-            <table className="w-full text-left text-xs divide-y divide-slate-200">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
-                <tr>
-                  <th className="p-4">Establecimiento</th>
-                  <th className="p-4">RUT Jurídico</th>
-                  <th className="p-4">Dirección</th>
-                  <th className="p-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {schools.map(sch => (
-                  <tr key={sch.id} className="hover:bg-slate-50/50">
-                    <td className="p-4 flex items-center gap-2">
-                      <Building2 size={16} className="text-slate-400" />
-                      <span className="font-bold text-slate-800">{sch.name}</span>
-                    </td>
-                    <td className="p-4 font-mono">{sch.rut}</td>
-                    <td className="p-4 text-slate-500">{sch.address || 'Sin dirección registrada'}</td>
-                    <td className="p-4 text-right space-x-2">
-                      <button
-                        onClick={() => handleOpenSchoolModal(sch)}
-                        className="text-primary hover:underline font-bold"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSchool(sch.id, sch.name)}
-                        className="text-red-600 hover:underline font-bold"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------------------------------------------- */}
-      {/* TAB 3: MATRICULA / STUDENTS LIST & CSV IMPORT */}
+      {/* TAB 2: MATRICULA / STUDENTS LIST & CSV IMPORT */}
       {/* ---------------------------------------------------- */}
       {activeTab === 'students' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in">
           
-          {/* CSV File Uploader & Manual Add (5 cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            
-            {/* CSV Import card */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                <FileSpreadsheet className="text-primary" size={20} />
-                <h3 className="font-bold text-sm text-slate-800">Cargar Archivo CSV</h3>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Puedes subir el listado completo de estudiantes usando el formato de nómina del Ministerio (Excel/CSV de matrícula del Biobío) o formato simple.
-              </p>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] space-y-2 text-slate-650">
-                <span className="font-bold text-slate-805 block uppercase tracking-wider flex items-center gap-1">
-                  <HelpCircle size={12} className="text-primary" /> Formatos Soportados:
-                </span>
-                <div className="space-y-1">
-                  <p className="font-bold text-slate-700">1. Formato Nómina Ministerial (Semicolon ;):</p>
-                  <p className="text-slate-500 italic pl-2">Campos requeridos: Run, Dígito Ver., Nombres, Apellido Paterno, Apellido Materno, Desc Grado, Letra Curso, Email</p>
+          {/* CSV File Uploader (Only visible to Admin) */}
+          {isAdmin && (
+            <div className="lg:col-span-4 space-y-6">
+              {/* CSV Import card */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <FileSpreadsheet className="text-primary" size={20} />
+                  <h3 className="font-bold text-sm text-slate-800">Cargar Archivo CSV</h3>
                 </div>
-                <div className="border-t border-slate-200 pt-1.5 space-y-1">
-                  <p className="font-bold text-slate-700">2. Formato Simple (Coma ,):</p>
-                  <code className="block bg-slate-900 text-white rounded p-1.5 font-mono text-[9px]">
-                    rut,nombre,apellido,curso,email
-                  </code>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Puedes subir el listado completo de estudiantes usando el formato de nómina del Ministerio (Excel/CSV de matrícula del Biobío) o formato simple.
+                </p>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] space-y-2 text-slate-650">
+                  <span className="font-bold text-slate-805 block uppercase tracking-wider flex items-center gap-1">
+                    <HelpCircle size={12} className="text-primary" /> Formatos Soportados:
+                  </span>
+                  <div className="space-y-1">
+                    <p className="font-bold text-slate-700">1. Formato Nómina Ministerial (Semicolon ;):</p>
+                    <p className="text-slate-500 italic pl-2">Campos requeridos: Run, Dígito Ver., Nombres, Apellido Paterno, Apellido Materno, Desc Grado, Letra Curso, Email</p>
+                  </div>
+                  <div className="border-t border-slate-200 pt-1.5 space-y-1">
+                    <p className="font-bold text-slate-700">2. Formato Simple (Coma ,):</p>
+                    <code className="block bg-slate-900 text-white rounded p-1.5 font-mono text-[9px]">
+                      rut,nombre,apellido,curso,email
+                    </code>
+                  </div>
                 </div>
+
+                <form onSubmit={handleCSVUpload} className="space-y-3">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setCsvFile(e.target.files ? e.target.files[0] : null)}
+                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary-light file:text-primary hover:file:bg-primary-light/80 cursor-pointer"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs py-2 rounded-xl shadow-sm transition-all"
+                  >
+                    <Upload size={14} />
+                    <span>Procesar e Importar</span>
+                  </button>
+                </form>
               </div>
 
-              <form onSubmit={handleCSVUpload} className="space-y-3">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => setCsvFile(e.target.files ? e.target.files[0] : null)}
-                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary-light file:text-primary hover:file:bg-primary-light/80 cursor-pointer"
-                />
+              {/* Quick manual Add student for Admin */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+                <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-3">
+                  <UserPlus size={18} className="text-primary" />
+                  <span>Ingreso Manual</span>
+                </h3>
+                <p className="text-xs text-slate-500">Registra un alumno de manera manual en este establecimiento:</p>
                 <button
-                  type="submit"
-                  className="w-full flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs py-2 rounded-xl shadow-sm transition-all"
+                  onClick={() => handleOpenStudentModal()}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
-                  <Upload size={14} />
-                  <span>Procesar e Importar</span>
+                  Inscribir Alumno
                 </button>
-              </form>
+              </div>
             </div>
+          )}
 
-            {/* Quick manual Add student */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
-              <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-                <UserPlus size={18} className="text-primary" />
-                <span>Ingreso Manual</span>
-              </h3>
-              <p className="text-xs text-slate-500">Registra un alumno de manera manual en este establecimiento:</p>
-              <button
-                onClick={() => handleOpenStudentModal()}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition-colors"
-              >
-                Inscribir Alumno
-              </button>
-            </div>
-
-          </div>
-
-          {/* MATRICULATED STUDENTS LIST (8 cols) */}
-          <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          {/* MATRICULATED STUDENTS LIST (8 cols if Admin, 12 if normal staff) */}
+          <div className={`${isAdmin ? 'lg:col-span-8' : 'lg:col-span-12'} bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
               <div>
                 <h3 className="font-bold text-base text-slate-800">Matrícula Escolar ({activeSchool})</h3>
@@ -548,7 +606,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </div>
               
               {/* Filter controls */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
+                {!isAdmin && (
+                  <button
+                    onClick={() => handleOpenStudentModal()}
+                    className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer mr-2"
+                  >
+                    <Plus size={14} />
+                    <span>Inscribir Alumno</span>
+                  </button>
+                )}
+
                 <select
                   value={selectedGradeFilter}
                   onChange={(e) => setSelectedGradeFilter(e.target.value)}
@@ -605,13 +673,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         <td className="p-3 text-right space-x-2">
                           <button
                             onClick={() => handleOpenStudentModal(std)}
-                            className="text-primary hover:underline font-bold"
+                            className="text-primary hover:underline font-bold cursor-pointer"
                           >
                             Editar
                           </button>
                           <button
                             onClick={() => handleDeleteStudent(std.id, `${std.firstName} ${std.lastName}`)}
-                            className="text-red-600 hover:underline font-bold"
+                            className="text-red-650 hover:underline font-bold cursor-pointer"
                           >
                             Eliminar
                           </button>
@@ -628,14 +696,152 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       )}
 
       {/* ---------------------------------------------------- */}
+      {/* TAB 3: SCHOOLS LIST CRUD (Admin Only) */}
+      {/* ---------------------------------------------------- */}
+      {activeTab === 'schools' && isAdmin && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6 animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-bold text-lg text-slate-800">Colegios Asociados</h3>
+              <p className="text-xs text-slate-500">Administra los establecimientos educacionales que operan sobre Conexia.</p>
+            </div>
+            <button
+              onClick={() => handleOpenSchoolModal()}
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>Agregar Colegio</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-xs divide-y divide-slate-200">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
+                <tr>
+                  <th className="p-4">Establecimiento</th>
+                  <th className="p-4">RUT Jurídico</th>
+                  <th className="p-4">Dirección</th>
+                  <th className="p-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {schools.map(sch => (
+                  <tr key={sch.id} className="hover:bg-slate-50/50">
+                    <td className="p-4 flex items-center gap-2">
+                      <Building2 size={16} className="text-slate-400" />
+                      <span className="font-bold text-slate-800">{sch.name}</span>
+                    </td>
+                    <td className="p-4 font-mono">{sch.rut}</td>
+                    <td className="p-4 text-slate-500">{sch.address || 'Sin dirección registrada'}</td>
+                    <td className="p-4 text-right space-x-2">
+                      <button
+                        onClick={() => handleOpenSchoolModal(sch)}
+                        className="text-primary hover:underline font-bold cursor-pointer"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSchool(sch.id, sch.name)}
+                        className="text-red-650 hover:underline font-bold cursor-pointer"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB 4: STAFF LIST CRUD (Admin Only) */}
+      {/* ---------------------------------------------------- */}
+      {activeTab === 'staff' && isAdmin && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6 animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-bold text-lg text-slate-800">Control de Accesos y Usuarios (Personal)</h3>
+              <p className="text-xs text-slate-500">Administra las cuentas de Encargado de Convivencia, Psicólogos, Asistentes Sociales y Orientadores.</p>
+            </div>
+            <button
+              onClick={() => handleOpenStaffModal()}
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>Agregar Funcionario</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-xs divide-y divide-slate-200">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase">
+                <tr>
+                  <th className="p-4">Nombre Funcionario</th>
+                  <th className="p-4">RUT</th>
+                  <th className="p-4">Correo Electrónico</th>
+                  <th className="p-4">Rol / Permisos</th>
+                  <th className="p-4">Establecimiento</th>
+                  <th className="p-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {staffList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-400 italic">No hay funcionarios registrados en el sistema.</td>
+                  </tr>
+                ) : (
+                  staffList.map(st => (
+                    <tr key={st.rut} className="hover:bg-slate-50/50">
+                      <td className="p-4 font-bold text-slate-800">{st.firstName} {st.lastName}</td>
+                      <td className="p-4 font-mono">{st.rut}</td>
+                      <td className="p-4">{st.email}</td>
+                      <td className="p-4">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          st.role === 'Administrador' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                          st.role === 'Psicólogo' ? 'bg-violet-50 text-violet-750 border-violet-200' :
+                          st.role === 'Convivencia' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          st.role === 'Trabajador Social' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' :
+                          st.role === 'Orientador' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}>
+                          {st.role}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-500 font-semibold">{st.school}</td>
+                      <td className="p-4 text-right space-x-2">
+                        <button
+                          onClick={() => handleOpenStaffModal(st)}
+                          className="text-primary hover:underline font-bold cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStaff(st.id, `${st.firstName} ${st.lastName}`)}
+                          className="text-red-650 hover:underline font-bold cursor-pointer"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
       {/* MODAL COLEGIO CRUD */}
       {/* ---------------------------------------------------- */}
-      {isSchoolModalOpen && (
+      {isSchoolModalOpen && isAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in slide-in">
             <div className="p-5 bg-slate-950 text-white flex items-center justify-between">
               <h3 className="font-bold text-sm">{editingSchool ? 'Editar Colegio' : 'Registrar Establecimiento'}</h3>
-              <button onClick={() => setIsSchoolModalOpen(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
+              <button onClick={() => setIsSchoolModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><X size={18} /></button>
             </div>
             <form onSubmit={handleSaveSchool} className="p-5 space-y-4 text-xs">
               <div>
@@ -676,13 +882,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSchoolModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-xl shadow"
+                  className="bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-xl shadow cursor-pointer"
                 >
                   {editingSchool ? 'Guardar Cambios' : 'Registrar'}
                 </button>
@@ -700,7 +906,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in slide-in">
             <div className="p-5 bg-slate-950 text-white flex items-center justify-between">
               <h3 className="font-bold text-sm">{editingStudent ? 'Editar Estudiante' : 'Inscribir Alumno'}</h3>
-              <button onClick={() => setIsStudentModalOpen(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
+              <button onClick={() => setIsStudentModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><X size={18} /></button>
             </div>
             <form onSubmit={handleSaveStudent} className="p-5 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
@@ -736,12 +942,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     disabled={editingStudent !== null}
                     onChange={(e) => setStudentRut(e.target.value)}
                     placeholder="Ej: 20.450.912-4"
-                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm disabled:bg-slate-105 disabled:text-slate-500"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Curso / Grade</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Curso</label>
                   <input
                     type="text"
                     value={studentGrade}
@@ -766,15 +972,127 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsStudentModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-xl shadow"
+                  className="bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-xl shadow cursor-pointer"
                 >
                   {editingStudent ? 'Guardar Cambios' : 'Matricular'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* MODAL FUNCIONARIO/USUARIO CRUD (Admin Only) */}
+      {/* ---------------------------------------------------- */}
+      {isStaffModalOpen && isAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in slide-in">
+            <div className="p-5 bg-slate-950 text-white flex items-center justify-between">
+              <h3 className="font-bold text-sm">{editingStaff ? 'Editar Acceso Funcionario' : 'Registrar Nuevo Funcionario'}</h3>
+              <button onClick={() => setIsStaffModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveStaff} className="p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    value={staffFirstName}
+                    onChange={(e) => setStaffFirstName(e.target.value)}
+                    placeholder="Ej: Carolina"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Apellido</label>
+                  <input
+                    type="text"
+                    value={staffLastName}
+                    onChange={(e) => setStaffLastName(e.target.value)}
+                    placeholder="Ej: Silva Rojas"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">RUT Funcionario</label>
+                  <input
+                    type="text"
+                    value={staffRut}
+                    disabled={editingStaff !== null}
+                    onChange={(e) => setStaffRut(e.target.value)}
+                    placeholder="Ej: 15.123.456-7"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Correo Institucional</label>
+                  <input
+                    type="email"
+                    value={staffEmail}
+                    onChange={(e) => setStaffEmail(e.target.value)}
+                    placeholder="ejemplo@colegio.cl"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Rol / Módulo Principal</label>
+                  <select
+                    value={staffRole}
+                    onChange={(e) => setStaffRole(e.target.value as UserRole)}
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm cursor-pointer"
+                  >
+                    <option value="Convivencia">Encargado de Convivencia</option>
+                    <option value="Psicólogo">Psicólogo(a)</option>
+                    <option value="Trabajador Social">Asistente/Trabajador Social</option>
+                    <option value="Orientador">Orientador(a)</option>
+                    <option value="Docente">Docente / Profesor</option>
+                    <option value="Administrador">Administrador</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Establecimiento Asignado</label>
+                  <select
+                    value={staffSchool}
+                    onChange={(e) => setStaffSchool(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm cursor-pointer"
+                  >
+                    {schools.map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsStaffModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primary hover:bg-primary-hover text-white font-bold px-4 py-2 rounded-xl shadow cursor-pointer"
+                >
+                  {editingStaff ? 'Guardar Cambios' : 'Registrar'}
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 export type SchoolType = string;
 
-export type UserRole = 'Docente' | 'Convivencia' | 'Psicólogo' | 'Trabajador Social' | 'Director';
+export type UserRole = 'Docente' | 'Convivencia' | 'Psicólogo' | 'Trabajador Social' | 'Director' | 'Administrador' | 'Orientador';
 
 export interface School {
   id: string; // unique code/slug
