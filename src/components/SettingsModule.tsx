@@ -45,6 +45,7 @@ interface SettingsModuleProps {
   onRefreshSchools: () => void;
   students: Student[];
   onRefreshStudents: () => void;
+  onRefreshStaff?: () => void;
   activeTheme: ColorTheme;
   setActiveTheme: (theme: ColorTheme) => void;
   loggedInUser: Staff | null;
@@ -56,6 +57,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onRefreshSchools,
   students,
   onRefreshStudents,
+  onRefreshStaff,
   activeTheme,
   setActiveTheme,
   loggedInUser
@@ -297,6 +299,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       }
       setIsStaffModalOpen(false);
       loadStaffList();
+      if (onRefreshStaff) onRefreshStaff();
     } catch (err) {
       toast.error('Error al registrar funcionario.');
     }
@@ -312,6 +315,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         await dbService.deleteStaff(id);
         toast.success('Cuenta de acceso eliminada.');
         loadStaffList();
+        if (onRefreshStaff) onRefreshStaff();
       } catch (err) {
         toast.error('Error al eliminar funcionario.');
       }

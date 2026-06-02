@@ -19,7 +19,6 @@ interface LayoutProps {
   setActiveSchool: (school: SchoolType) => void;
   activeRole: UserRole;
   cacheStatus: 'loading' | 'cached' | 'error';
-  onClearCache: () => void;
   loggedInUser: Staff | null;
   onLogout: () => void;
   schools: School[];
@@ -33,7 +32,6 @@ export const Layout: React.FC<LayoutProps> = ({
   setActiveSchool,
   activeRole,
   cacheStatus,
-  onClearCache,
   loggedInUser,
   onLogout,
   schools
@@ -140,28 +138,12 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
 
-          {/* Cache Status Indicator */}
+          {/* Status Indicator */}
           <div className="flex items-center gap-3">
             {cacheStatus === 'loading' && (
               <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 text-xs animate-pulse font-medium">
                 <Database size={13} />
-                <span>Cargando Estudiantes...</span>
-              </div>
-            )}
-            {cacheStatus === 'cached' && (
-              <button 
-                onClick={onClearCache}
-                title="Haga clic para forzar sincronización con Firebase"
-                className="flex items-center gap-2 text-primary bg-primary-light hover:bg-primary-light/80 px-2.5 py-1 rounded-lg border border-primary/10 text-xs font-semibold transition-all duration-300 cursor-pointer"
-              >
-                <Database size={13} />
-                <span>Caché Local Sincronizado</span>
-              </button>
-            )}
-            {cacheStatus === 'error' && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 px-2.5 py-1 rounded-lg border border-red-100 text-xs font-semibold">
-                <Database size={13} />
-                <span>Error de Caché</span>
+                <span>Cargando...</span>
               </div>
             )}
           </div>

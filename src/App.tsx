@@ -59,47 +59,18 @@ function App() {
   }, []);
 
   // Main loader for students & staff
-  const loadSchoolCache = async (school: SchoolType, forceSync = false) => {
+  const loadSchoolCache = async (school: SchoolType) => {
     setCacheStatus('loading');
-    
-    const studentsCacheKey = `conexia_cached_students_${school}`;
-    const staffCacheKey = `conexia_cached_staff_${school}`;
-
-    let loadedStudents: Student[] = [];
-    let loadedStaff: Staff[] = [];
-
     try {
-      if (!forceSync) {
-        const cachedStudents = sessionStorage.getItem(studentsCacheKey);
-        const cachedStaff = sessionStorage.getItem(staffCacheKey);
-
-        if (cachedStudents && cachedStaff) {
-          loadedStudents = JSON.parse(cachedStudents);
-          loadedStaff = JSON.parse(cachedStaff);
-          setStudents(loadedStudents);
-          setStaff(loadedStaff);
-          setCacheStatus('cached');
-          return;
-        }
-      }
-
-      loadedStudents = await dbService.getStudents(school);
-      loadedStaff = await dbService.getStaff(school);
-
-      sessionStorage.setItem(studentsCacheKey, JSON.stringify(loadedStudents));
-      sessionStorage.setItem(staffCacheKey, JSON.stringify(loadedStaff));
-
+      const loadedStudents = await dbService.getStudents(school);
+      const loadedStaff = await dbService.getStaff(school);
       setStudents(loadedStudents);
       setStaff(loadedStaff);
       setCacheStatus('cached');
-
-      if (forceSync) {
-        toast.success(`Datos de ${school} sincronizados correctamente.`);
-      }
     } catch (e) {
       console.error("Error al cargar la base de datos: ", e);
       setCacheStatus('error');
-      toast.error("Error al sincronizar datos del establecimiento.");
+      toast.error("Error al cargar datos del establecimiento.");
     }
   };
 
@@ -107,15 +78,14 @@ function App() {
     loadSchoolCache(activeSchool);
   }, [activeSchool]);
 
-  const handleForceSync = () => {
-    loadSchoolCache(activeSchool, true);
+  const refreshStudentsState = async () => {
+    const dbStudents = await dbService.getStudents(activeSchool);
+    setStudents(dbStudents);
   };
 
-  const refreshStudentsState = async () => {
-    const studentsCacheKey = `conexia_cached_students_${activeSchool}`;
-    const dbStudents = await dbService.getStudents(activeSchool);
-    sessionStorage.setItem(studentsCacheKey, JSON.stringify(dbStudents));
-    setStudents(dbStudents);
+  const refreshStaffState = async () => {
+    const dbStaff = await dbService.getStaff(activeSchool);
+    setStaff(dbStaff);
   };
 
   const handleLoginSuccess = (schoolName: string, role: string, staffMember: Staff) => {
@@ -151,7 +121,6 @@ function App() {
         setActiveSchool={setActiveSchool}
         activeRole={activeRole}
         cacheStatus={cacheStatus}
-        onClearCache={handleForceSync}
         loggedInUser={loggedInUser}
         onLogout={handleLogout}
         schools={schools}
@@ -188,6 +157,7 @@ function App() {
             onRefreshSchools={loadSchools}
             students={students}
             onRefreshStudents={refreshStudentsState}
+            onRefreshStaff={refreshStaffState}
             activeTheme={activeTheme}
             setActiveTheme={setActiveTheme}
             loggedInUser={loggedInUser}

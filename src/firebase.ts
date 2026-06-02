@@ -594,16 +594,6 @@ export const dbService = {
       students[index].conductScore = Math.max(0, Math.min(100, students[index].conductScore + delta));
       saveLocalData('students', students);
 
-      // Session storage update
-      const cached = sessionStorage.getItem('conexia_cached_students');
-      if (cached) {
-        const cachedParsed = JSON.parse(cached) as Student[];
-        const cachedIdx = cachedParsed.findIndex(s => s.id === c.studentId);
-        if (cachedIdx !== -1) {
-          cachedParsed[cachedIdx].conductScore = students[index].conductScore;
-          sessionStorage.setItem('conexia_cached_students', JSON.stringify(cachedParsed));
-        }
-      }
     }
 
     if (c.referredToPsychosocial) {
