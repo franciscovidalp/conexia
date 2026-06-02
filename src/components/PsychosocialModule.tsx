@@ -21,18 +21,26 @@ interface PsychosocialModuleProps {
   students: Student[];
   staff: Staff[];
   loggedInUser: Staff | null;
+  psychosocialCases: PsychosocialCase[];
+  onPsychosocialCasesChange: (cases: PsychosocialCase[]) => void;
 }
 
 export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
   activeSchool,
   students,
   staff,
-  loggedInUser
+  loggedInUser,
+  psychosocialCases: cachedCases,
+  onPsychosocialCasesChange
 }) => {
-  const [cases, setCases] = useState<PsychosocialCase[]>([]);
+  const [cases, setCases] = useState<PsychosocialCase[]>(cachedCases);
   const [selectedCase, setSelectedCase] = useState<PsychosocialCase | null>(null);
   const [sessions, setSessions] = useState<ClinicalSession[]>([]);
   const [editingSession, setEditingSession] = useState<ClinicalSession | null>(null);
+
+  useEffect(() => {
+    setCases(cachedCases);
+  }, [cachedCases]);
 
   // Modal Session state
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
@@ -51,9 +59,8 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
   const [editCaseRiskLevel, setEditCaseRiskLevel] = useState<RiskLevel>('Medio');
   const [editCaseReason, setEditCaseReason] = useState('');
 
-  // Load cases
+  // Load cases (reset state on school change)
   useEffect(() => {
-    loadCases();
     setSelectedCase(null);
     setSessions([]);
   }, [activeSchool]);
@@ -67,14 +74,7 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
     }
   }, [selectedCase]);
 
-  const loadCases = async () => {
-    try {
-      const res = await dbService.getPsychosocialCases(activeSchool);
-      setCases(res);
-    } catch (e) {
-      toast.error('Error al cargar casos psicosociales.');
-    }
-  };
+
 
   const loadSessions = async (caseId: string) => {
     try {
@@ -88,7 +88,8 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
   const handleMoveStatus = async (caseId: string, newStatus: PsychosocialStatus) => {
     try {
       await dbService.updatePsychosocialCaseStatus(caseId, newStatus);
-      setCases(prev => prev.map(c => c.id === caseId ? { ...c, status: newStatus } : c));
+      const updated = cachedCases.map(c => c.id === caseId ? { ...c, status: newStatus } : c);
+      onPsychosocialCasesChange(updated);
       if (selectedCase?.id === caseId) {
         setSelectedCase(prev => prev ? { ...prev, status: newStatus } : null);
       }
@@ -104,7 +105,8 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
       const count = await dbService.cleanOrphanedCases(studentIds);
       if (count > 0) {
         toast.success(`Limpieza completada: Se eliminaron ${count} casos huérfanos sin matrícula activa.`);
-        loadCases();
+        const updated = cachedCases.filter(c => studentIds.includes(c.studentId));
+        onPsychosocialCasesChange(updated);
         setSelectedCase(null);
       } else {
         toast.success('No se detectaron casos huérfanos en la base de datos.');
@@ -224,7 +226,8 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
         reason: editCaseReason.trim()
       };
       await dbService.updatePsychosocialCase(selectedCase.id, updates);
-      setCases(prev => prev.map(c => c.id === selectedCase.id ? { ...c, ...updates } : c));
+      const updated = cachedCases.map(c => c.id === selectedCase.id ? { ...c, ...updates } : c);
+      onPsychosocialCasesChange(updated);
       setSelectedCase(prev => prev ? { ...prev, ...updates } : null);
       toast.success('Ficha psicosocial actualizada.');
       setIsEditCaseModalOpen(false);
@@ -237,7 +240,8 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
     if (window.confirm('¿Está seguro de eliminar por completo este expediente psicosocial y todas sus sesiones? Esta acción no se puede deshacer.')) {
       try {
         await dbService.deletePsychosocialCase(caseId);
-        setCases(prev => prev.filter(c => c.id !== caseId));
+        const updated = cachedCases.filter(c => c.id !== caseId);
+        onPsychosocialCasesChange(updated);
         setSelectedCase(null);
         toast.success('Expediente psicosocial eliminado del sistema.');
       } catch (e) {

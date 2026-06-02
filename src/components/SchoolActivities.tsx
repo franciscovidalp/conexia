@@ -24,17 +24,25 @@ import toast from 'react-hot-toast';
 interface SchoolActivitiesProps {
   activeSchool: SchoolType;
   students: Student[];
+  activities: Activity[];
+  onActivitiesChange: (activities: Activity[]) => void;
 }
 
 export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
   activeSchool,
-  students
+  students,
+  activities: cachedActivities,
+  onActivitiesChange
 }) => {
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>(cachedActivities);
   const [filterStatus, setFilterStatus] = useState<ActivityStatus | 'Todos'>('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'detalles' | 'audiencia' | 'ejecucion'>('detalles');
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+
+  useEffect(() => {
+    setActivities(cachedActivities);
+  }, [cachedActivities]);
 
   // Form State
   const [formTitle, setFormTitle] = useState('');
@@ -54,18 +62,7 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
   // Extract unique grades for school
   const schoolGrades = Array.from(new Set(students.map(s => s.grade))).sort();
 
-  useEffect(() => {
-    loadActivities();
-  }, [activeSchool]);
 
-  const loadActivities = async () => {
-    try {
-      const res = await dbService.getActivities(activeSchool);
-      setActivities(res);
-    } catch (e) {
-      toast.error('Error al cargar actividades.');
-    }
-  };
 
   const resetForm = () => {
     setFormTitle('');
@@ -109,7 +106,8 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
     if (window.confirm('¿Está seguro de eliminar esta planificación de taller preventivo?')) {
       try {
         await dbService.deleteActivity(id);
-        setActivities(prev => prev.filter(a => a.id !== id));
+        const updated = cachedActivities.filter(a => a.id !== id);
+        onActivitiesChange(updated);
         toast.success('Actividad eliminada.');
       } catch (e) {
         toast.error('Error al eliminar.');
@@ -174,11 +172,13 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
 
       if (editingActivity) {
         await dbService.updateActivity(editingActivity.id, payload);
-        setActivities(prev => prev.map(a => a.id === editingActivity.id ? { ...a, ...payload } : a));
+        const updated = cachedActivities.map(a => a.id === editingActivity.id ? { ...a, ...payload } : a);
+        onActivitiesChange(updated);
         toast.success('Actividad actualizada con éxito.');
       } else {
         const newAct = await dbService.createActivity(payload);
-        setActivities(prev => [newAct, ...prev]);
+        const updated = [newAct, ...cachedActivities];
+        onActivitiesChange(updated);
         toast.success('Actividad planificada con éxito.');
       }
 
@@ -191,7 +191,8 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
   const handleQuickStatusChange = async (actId: string, status: ActivityStatus) => {
     try {
       await dbService.updateActivity(actId, { status });
-      setActivities(prev => prev.map(a => a.id === actId ? { ...a, status } : a));
+      const updated = cachedActivities.map(a => a.id === actId ? { ...a, status } : a);
+      onActivitiesChange(updated);
       toast.success(`Actividad marcada como ${status}.`);
     } catch (e) {
       toast.error('Error al actualizar estado.');

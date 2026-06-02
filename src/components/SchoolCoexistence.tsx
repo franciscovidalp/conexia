@@ -26,13 +26,17 @@ interface SchoolCoexistenceProps {
   students: Student[];
   staff: Staff[];
   onRefreshStudents: () => void;
+  coexistenceCases: CoexistenceCase[];
+  onCoexistenceCasesChange: (cases: CoexistenceCase[]) => void;
 }
 
 export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
   activeSchool,
   students,
   staff,
-  onRefreshStudents
+  onRefreshStudents,
+  coexistenceCases,
+  onCoexistenceCasesChange
 }) => {
   // Hub States
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,10 +44,14 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   
   // Case Paginated List State
-  const [cases, setCases] = useState<CoexistenceCase[]>([]);
-  const [lastDoc, setLastDoc] = useState<any>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingCases, setLoadingCases] = useState(false);
+  const [cases, setCases] = useState<CoexistenceCase[]>(coexistenceCases);
+  const [visibleCount, setVisibleCount] = useState(5);
+
+  useEffect(() => {
+    setCases(coexistenceCases);
+  }, [coexistenceCases]);
+
+  const hasMore = visibleCount < cases.length;
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,26 +76,11 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
 
   // Load General Cases
   useEffect(() => {
-    loadRecentCases(true);
+    setVisibleCount(5);
   }, [activeSchool]);
 
-  const loadRecentCases = async (reset = false) => {
-    setLoadingCases(true);
-    try {
-      const cursor = reset ? null : lastDoc;
-      const res = await dbService.getCoexistenceCases(activeSchool, 5, cursor);
-      if (reset) {
-        setCases(res.data);
-      } else {
-        setCases(prev => [...prev, ...res.data]);
-      }
-      setLastDoc(res.lastDoc);
-      setHasMore(res.hasMore);
-    } catch (e) {
-      toast.error('Error al cargar historial de casos.');
-    } finally {
-      setLoadingCases(false);
-    }
+  const loadRecentCases = () => {
+    setVisibleCount(prev => prev + 5);
   };
 
   const resetForm = () => {
@@ -137,7 +130,8 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
     if (window.confirm('¿Está seguro de eliminar esta anotación de la hoja de vida?')) {
       try {
         await dbService.deleteCoexistenceCase(id);
-        setCases(prev => prev.filter(c => c.id !== id));
+        const updatedCases = coexistenceCases.filter(c => c.id !== id);
+        onCoexistenceCasesChange(updatedCases);
         toast.success('Anotación eliminada.');
 
         // Revert score impact visually
@@ -148,9 +142,7 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
           else if (type === 'Grave') delta = 15;
           else if (type === 'Gravísima') delta = 25;
 
-          // update dynamically in DB and state
           const newScore = Math.max(0, Math.min(100, selectedStudent.conductScore + delta));
-          await dbService.updateStudent(selectedStudent.id, { conductScore: newScore });
           setSelectedStudent(prev => prev ? { ...prev, conductScore: newScore } : null);
           onRefreshStudents();
         }
@@ -201,12 +193,30 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
       if (editingCase) {
         // EDIT MODE
         await dbService.updateCoexistenceCase(editingCase.id, casePayload);
-        setCases(prev => prev.map(item => item.id === editingCase.id ? { ...item, ...casePayload } : item));
+        const updatedCases = coexistenceCases.map(item => item.id === editingCase.id ? { ...item, ...casePayload } : item);
+        onCoexistenceCasesChange(updatedCases);
+        
+        let oldDelta = 0;
+        if (editingCase.type === 'Positiva') oldDelta = 5;
+        else if (editingCase.type === 'Leve') oldDelta = -5;
+        else if (editingCase.type === 'Grave') oldDelta = -15;
+        else if (editingCase.type === 'Gravísima') oldDelta = -25;
+
+        let newDelta = 0;
+        if (formType === 'Positiva') newDelta = 5;
+        else if (formType === 'Leve') newDelta = -5;
+        else if (formType === 'Grave') newDelta = -15;
+        else if (formType === 'Gravísima') newDelta = -25;
+
+        const difference = newDelta - oldDelta;
+        const newScore = Math.max(0, Math.min(100, selectedStudent.conductScore + difference));
+        setSelectedStudent(prev => prev ? { ...prev, conductScore: newScore } : null);
         toast.success('Incidencia actualizada con éxito.');
       } else {
         // CREATE MODE
         const newCase = await dbService.createCoexistenceCase(casePayload);
-        setCases(prev => [newCase, ...prev]);
+        const updatedCases = [newCase, ...coexistenceCases];
+        onCoexistenceCasesChange(updatedCases);
 
         // Score delta impact
         let delta = 0;
@@ -242,6 +252,55 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
     if (score >= 80) return { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', text: 'Estable', color: 'bg-emerald-500' };
     if (score >= 60) return { bg: 'bg-amber-50 text-amber-700 border-amber-200', text: 'Alerta', color: 'bg-amber-500' };
     return { bg: 'bg-red-50 text-red-700 border-red-200', text: 'Crítico', color: 'bg-red-500' };
+  };
+
+  const getStudentColor = (studentId: string) => {
+    const sCases = coexistenceCases.filter(c => c.studentId === studentId);
+    if (sCases.length === 0) return null;
+    
+    const hasSevere = sCases.some(c => c.type === 'Grave' || c.type === 'Gravísima');
+    if (hasSevere) {
+      return {
+        bg: 'bg-red-50 text-red-700 border-red-200',
+        color: 'bg-red-500',
+        text: 'Riesgo RICE'
+      };
+    }
+    const hasLeve = sCases.some(c => c.type === 'Leve');
+    if (hasLeve) {
+      return {
+        bg: 'bg-orange-50 text-orange-700 border-orange-200',
+        color: 'bg-orange-500',
+        text: 'Observación'
+      };
+    }
+    const hasPositive = sCases.some(c => c.type === 'Positiva');
+    if (hasPositive) {
+      return {
+        bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        color: 'bg-emerald-500',
+        text: 'Destacado'
+      };
+    }
+    return null;
+  };
+
+  const getCourseFolderStyle = (courseName: string) => {
+    const courseStudents = students.filter(s => s.grade === courseName).map(s => s.id);
+    const hasNegative = coexistenceCases.some(c => courseStudents.includes(c.studentId) && c.type !== 'Positiva');
+    
+    if (hasNegative) {
+      return {
+        bg: 'bg-rose-50/50 hover:bg-rose-100/50 border-rose-200',
+        iconBg: 'bg-rose-100 text-rose-600',
+        text: 'text-rose-950 font-bold'
+      };
+    }
+    return {
+      bg: 'bg-slate-50 hover:bg-primary-light/30 border-slate-200',
+      iconBg: 'bg-primary-light text-primary',
+      text: 'text-slate-800'
+    };
   };
 
   const getCaseTypeBadge = (type: CaseType) => {
@@ -317,23 +376,26 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
               <div className="p-4 space-y-3">
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Carpetas por Curso</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {courses.map(course => (
-                    <button
-                      key={course}
-                      onClick={() => setSelectedCourse(course)}
-                      className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-primary-light/30 hover:border-primary/20 border border-slate-200 rounded-xl text-left transition-all duration-200 cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-primary-light flex items-center justify-center text-primary">
-                        <Folder size={18} />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-sm text-slate-800">{course}</div>
-                        <div className="text-xs text-slate-500">
-                          {students.filter(s => s.grade === course).length} alumnos
+                  {courses.map(course => {
+                    const style = getCourseFolderStyle(course);
+                    return (
+                      <button
+                        key={course}
+                        onClick={() => setSelectedCourse(course)}
+                        className={`flex items-center gap-3 p-3 border rounded-xl text-left transition-all duration-200 cursor-pointer ${style.bg}`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${style.iconBg}`}>
+                          <Folder size={18} />
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                        <div>
+                          <div className={`font-semibold text-sm ${style.text}`}>{course}</div>
+                          <div className="text-xs text-slate-500">
+                            {students.filter(s => s.grade === course).length} alumnos
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -344,7 +406,6 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                   </div>
                 ) : (
                   filteredStudents.map(student => {
-                    const status = getSemaphoreBadge(student.conductScore);
                     const isSelected = selectedStudent?.id === student.id;
                     return (
                       <button
@@ -368,8 +429,12 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${status.bg}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.color}`}></span>
+                          <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${
+                            (getStudentColor(student.id) || getSemaphoreBadge(student.conductScore)).bg
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              (getStudentColor(student.id) || getSemaphoreBadge(student.conductScore)).color
+                            }`}></span>
                             {student.conductScore} pts
                           </span>
                           <ChevronRight size={16} className="text-slate-400" />
@@ -578,10 +643,9 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
             {hasMore && (
               <button
                 onClick={() => loadRecentCases()}
-                disabled={loadingCases}
-                className="w-full text-center text-xs font-bold text-primary hover:text-primary-hover mt-2 block transition-colors disabled:opacity-50"
+                className="w-full text-center text-xs font-bold text-primary hover:text-primary-hover mt-2 block transition-colors"
               >
-                {loadingCases ? 'Cargando...' : 'Cargar más casos recientes'}
+                Cargar más casos recientes
               </button>
             )}
           </div>

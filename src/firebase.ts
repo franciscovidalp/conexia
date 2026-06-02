@@ -578,6 +578,22 @@ export const dbService = {
     return all.filter(c => c.school === school).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   },
 
+  async updateStudentScore(studentId: string, score: number): Promise<void> {
+    if (!useMock) {
+      try {
+        await updateDoc(doc(db, 'students', studentId), { conductScore: score });
+      } catch (err) {
+        console.error("Firestore error updating student score:", err);
+      }
+    }
+    const students = getLocalData<Student>('students', MOCK_STUDENTS);
+    const idx = students.findIndex(s => s.id === studentId);
+    if (idx !== -1) {
+      students[idx].conductScore = score;
+      saveLocalData('students', students);
+    }
+  },
+
   async createCoexistenceCase(c: Omit<CoexistenceCase, 'id' | 'createdAt'>): Promise<CoexistenceCase> {
     const newCase: CoexistenceCase = {
       ...c,
@@ -597,7 +613,7 @@ export const dbService = {
     all.push(newCase);
     saveLocalData('coexistence_cases', all);
 
-    // Adjust conduct score
+    // Adjust conduct score in DB
     const students = getLocalData<Student>('students', MOCK_STUDENTS);
     const index = students.findIndex(s => s.id === c.studentId);
     if (index !== -1) {
@@ -607,9 +623,9 @@ export const dbService = {
       else if (c.type === 'Grave') delta = -15;
       else if (c.type === 'Gravísima') delta = -25;
       
-      students[index].conductScore = Math.max(0, Math.min(100, students[index].conductScore + delta));
-      saveLocalData('students', students);
-
+      const currentScore = students[index].conductScore;
+      const newScore = Math.max(0, Math.min(100, currentScore + delta));
+      await this.updateStudentScore(c.studentId, newScore);
     }
 
     if (c.referredToPsychosocial) {
@@ -629,6 +645,17 @@ export const dbService = {
   },
 
   async updateCoexistenceCase(id: string, updates: Partial<CoexistenceCase>): Promise<void> {
+    let oldCase: CoexistenceCase | undefined;
+    
+    // Find old case
+    const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
+    const idx = all.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      oldCase = all[idx];
+      all[idx] = { ...all[idx], ...updates };
+      saveLocalData('coexistence_cases', all);
+    }
+
     if (!useMock) {
       try {
         await updateDoc(doc(db, 'coexistence_cases', id), updates);
@@ -636,15 +663,44 @@ export const dbService = {
         console.error(e);
       }
     }
-    const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
-    const idx = all.findIndex(c => c.id === id);
-    if (idx !== -1) {
-      all[idx] = { ...all[idx], ...updates };
-      saveLocalData('coexistence_cases', all);
+
+    // Adjust score if the type was updated
+    if (oldCase && updates.type && oldCase.type !== updates.type) {
+      let oldDelta = 0;
+      if (oldCase.type === 'Positiva') oldDelta = 5;
+      else if (oldCase.type === 'Leve') oldDelta = -5;
+      else if (oldCase.type === 'Grave') oldDelta = -15;
+      else if (oldCase.type === 'Gravísima') oldDelta = -25;
+
+      let newDelta = 0;
+      if (updates.type === 'Positiva') newDelta = 5;
+      else if (updates.type === 'Leve') newDelta = -5;
+      else if (updates.type === 'Grave') newDelta = -15;
+      else if (updates.type === 'Gravísima') newDelta = -25;
+
+      const difference = newDelta - oldDelta;
+
+      const students = getLocalData<Student>('students', MOCK_STUDENTS);
+      const sIdx = students.findIndex(s => s.id === oldCase!.studentId);
+      if (sIdx !== -1) {
+        const currentScore = students[sIdx].conductScore;
+        const newScore = Math.max(0, Math.min(100, currentScore + difference));
+        await this.updateStudentScore(oldCase.studentId, newScore);
+      }
     }
   },
 
   async deleteCoexistenceCase(id: string): Promise<void> {
+    let targetCase: CoexistenceCase | undefined;
+    
+    const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
+    const idx = all.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      targetCase = all[idx];
+      const filtered = all.filter(c => c.id !== id);
+      saveLocalData('coexistence_cases', filtered);
+    }
+
     if (!useMock) {
       try {
         await deleteDoc(doc(db, 'coexistence_cases', id));
@@ -652,9 +708,23 @@ export const dbService = {
         console.error(e);
       }
     }
-    const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
-    const filtered = all.filter(c => c.id !== id);
-    saveLocalData('coexistence_cases', filtered);
+
+    // Revert the score impact
+    if (targetCase) {
+      let delta = 0;
+      if (targetCase.type === 'Positiva') delta = -5;
+      else if (targetCase.type === 'Leve') delta = 5;
+      else if (targetCase.type === 'Grave') delta = 15;
+      else if (targetCase.type === 'Gravísima') delta = 25;
+
+      const students = getLocalData<Student>('students', MOCK_STUDENTS);
+      const sIdx = students.findIndex(s => s.id === targetCase!.studentId);
+      if (sIdx !== -1) {
+        const currentScore = students[sIdx].conductScore;
+        const newScore = Math.max(0, Math.min(100, currentScore + delta));
+        await this.updateStudentScore(targetCase.studentId, newScore);
+      }
+    }
   },
 
   // --- ACTIVITIES ---

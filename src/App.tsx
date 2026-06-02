@@ -9,7 +9,7 @@ import { SettingsModule, THEMES } from './components/SettingsModule';
 import type { ColorTheme } from './components/SettingsModule';
 import { LoginModule } from './components/LoginModule';
 import { dbService } from './firebase';
-import type { Student, Staff, SchoolType, UserRole, School } from './types';
+import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase } from './types';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
@@ -25,6 +25,9 @@ function App() {
   // Cached collections (Zero-Read Architecture)
   const [students, setStudents] = useState<Student[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [coexistenceCases, setCoexistenceCases] = useState<CoexistenceCase[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [psychosocialCases, setPsychosocialCases] = useState<PsychosocialCase[]>([]);
   const [cacheStatus, setCacheStatus] = useState<'loading' | 'cached' | 'error'>('loading');
 
   // 10 Color Theme state
@@ -60,14 +63,21 @@ function App() {
     loadSchools();
   }, []);
 
-  // Main loader for students & staff
+  // Main loader for students, staff, and other collections to optimize Firestore reads
   const loadSchoolCache = async (school: SchoolType) => {
     setCacheStatus('loading');
     try {
       const loadedStudents = await dbService.getStudents(school);
       const loadedStaff = await dbService.getStaff(school);
+      const casesObj = await dbService.getCoexistenceCases(school, 1000);
+      const loadedActivities = await dbService.getActivities(school);
+      const loadedPsychosocial = await dbService.getPsychosocialCases(school);
+
       setStudents(loadedStudents);
       setStaff(loadedStaff);
+      setCoexistenceCases(casesObj?.data || []);
+      setActivities(loadedActivities || []);
+      setPsychosocialCases(loadedPsychosocial || []);
       setCacheStatus('cached');
     } catch (e) {
       console.error("Error al cargar la base de datos: ", e);
@@ -139,6 +149,8 @@ function App() {
             students={students}
             staff={staff}
             onRefreshStudents={refreshStudentsState}
+            coexistenceCases={coexistenceCases}
+            onCoexistenceCasesChange={setCoexistenceCases}
           />
         )}
 
@@ -146,6 +158,8 @@ function App() {
           <SchoolActivities
             activeSchool={activeSchool}
             students={students}
+            activities={activities}
+            onActivitiesChange={setActivities}
           />
         )}
 
@@ -155,6 +169,8 @@ function App() {
             students={students}
             staff={staff}
             loggedInUser={loggedInUser}
+            psychosocialCases={psychosocialCases}
+            onPsychosocialCasesChange={setPsychosocialCases}
           />
         )}
 
