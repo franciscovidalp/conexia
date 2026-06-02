@@ -19,7 +19,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, RiceProtocol } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -161,6 +161,84 @@ const INITIAL_SESSIONS: ClinicalSession[] = [
     professionalId: "14.230.119-K",
     professionalName: "María Paz Toledo Bascuñán",
     createdAt: "2026-05-15T11:00:00Z"
+  }
+];
+
+const INITIAL_RICE_PROTOCOLS: RiceProtocol[] = [
+  {
+    id: "proto-1",
+    caseId: "case-102",
+    studentId: "21.564.912-3",
+    studentName: "Benjamín Cortés Salinas",
+    grade: "3° Medio A",
+    school: "Colegio San Nicolás",
+    protocolType: "Violencia Escolar",
+    status: "Abierto",
+    startedAt: "2026-05-20",
+    dueDate: "2026-06-10",
+    createdAt: "2026-05-20T12:20:00.000Z",
+    steps: [
+      {
+        id: '1_detection',
+        name: 'Detección y Registro',
+        description: 'Registro del reporte inicial y adopción de medidas inmediatas de resguardo.',
+        status: 'Completado',
+        completedAt: '2026-05-20',
+        completedBy: 'Carlos Mendoza Allende',
+        notes: 'Estudiante es sorprendido portando elemento cortopunzante en patio. Se confisca objeto y se aísla preventivamente al estudiante.',
+        fields: {
+          initialMeasures: 'Suspensión preventiva del estudiante, citación inmediata de apoderado.',
+          reporterName: 'Carlos Mendoza Allende'
+        }
+      },
+      {
+        id: '2_notification',
+        name: 'Derivación y Notificación',
+        description: 'Citación formal y comunicación escrita a los apoderados del estudiante afectado y el denunciado.',
+        status: 'Completado',
+        completedAt: '2026-05-21',
+        completedBy: 'Carlos Mendoza Allende',
+        notes: 'Apoderado asiste a reunión y firma acta de notificación de suspensión preventiva e inicio de investigación RICE.',
+        fields: {
+          victimParentNotifiedDate: '2026-05-20',
+          aggressorParentNotifiedDate: '2026-05-20',
+          communicationType: 'Citación presencial con firma de acta física.'
+        }
+      },
+      {
+        id: '3_investigation',
+        name: 'Investigación y Entrevistas',
+        description: 'Recopilación de relatos de implicados, testigos y análisis de antecedentes.',
+        status: 'En Proceso',
+        notes: 'Entrevista realizada a testigos del patio. Pendiente informe de inspectoría.',
+        fields: {
+          interviews: ['Carlos Mendoza (Inspector)', 'Estudiante Benjamín Cortés'],
+          findings: 'Se corrobora que el objeto fue mostrado a compañeros en tono de broma, pero constituye una falta gravísima según el manual.'
+        }
+      },
+      {
+        id: '4_resolution',
+        name: 'Resolución y Medidas RICE',
+        description: 'Determinación de medidas formativas o disciplinarias según el reglamento interno.',
+        status: 'Pendiente',
+        fields: {
+          measureType: '',
+          resolutionDescription: '',
+          commitmentsSigned: false
+        }
+      },
+      {
+        id: '5_followup',
+        name: 'Seguimiento e Informe',
+        description: 'Monitoreo de compromisos de apoyo, derivación a dupla psicosocial y cierre formal.',
+        status: 'Pendiente',
+        fields: {
+          referredToDupla: true,
+          followupDate: '',
+          finalReportSummary: ''
+        }
+      }
+    ]
   }
 ];
 
@@ -1081,6 +1159,73 @@ export const dbService = {
     saveLocalData('meetings', filtered);
   },
 
+  // --- PROTOCOLS ---
+  async getRiceProtocols(school: SchoolType): Promise<RiceProtocol[]> {
+    if (!useMock && db) {
+      try {
+        const q = query(collection(db, 'rice_protocols'), where('school', '==', school));
+        const snap = await getDocs(q);
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() } as RiceProtocol));
+        return results;
+      } catch (err) {
+        console.error("Error fetching rice protocols:", err);
+        return [];
+      }
+    }
+    return getLocalData<RiceProtocol>('rice_protocols', INITIAL_RICE_PROTOCOLS).filter(p => p.school === school);
+  },
+
+  async createRiceProtocol(proto: Omit<RiceProtocol, 'id' | 'createdAt'>): Promise<RiceProtocol> {
+    const newProto: RiceProtocol = {
+      ...proto,
+      id: "proto-" + Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString()
+    };
+    if (!useMock && db) {
+      try {
+        await setDoc(doc(db, 'rice_protocols', newProto.id), newProto);
+        return newProto;
+      } catch (err) {
+        console.error("Error creating rice protocol:", err);
+      }
+    }
+    const all = getLocalData<RiceProtocol>('rice_protocols', INITIAL_RICE_PROTOCOLS);
+    all.push(newProto);
+    saveLocalData('rice_protocols', all);
+    return newProto;
+  },
+
+  async updateRiceProtocol(id: string, updates: Partial<RiceProtocol>): Promise<void> {
+    if (!useMock && db) {
+      try {
+        await updateDoc(doc(db, 'rice_protocols', id), updates);
+        return;
+      } catch (err) {
+        console.error("Error updating rice protocol:", err);
+      }
+    }
+    const all = getLocalData<RiceProtocol>('rice_protocols', INITIAL_RICE_PROTOCOLS);
+    const idx = all.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      all[idx] = { ...all[idx], ...updates };
+      saveLocalData('rice_protocols', all);
+    }
+  },
+
+  async deleteRiceProtocol(id: string): Promise<void> {
+    if (!useMock && db) {
+      try {
+        await deleteDoc(doc(db, 'rice_protocols', id));
+        return;
+      } catch (err) {
+        console.error("Error deleting rice protocol:", err);
+      }
+    }
+    const all = getLocalData<RiceProtocol>('rice_protocols', INITIAL_RICE_PROTOCOLS);
+    const filtered = all.filter(p => p.id !== id);
+    saveLocalData('rice_protocols', filtered);
+  },
+
   // --- AUTHENTICATION ---
   async signIn(emailOrRut: string, checkPassword: string): Promise<Staff> {
     const staffList = await dbService.getAllStaff();
@@ -1238,6 +1383,7 @@ export const dbService = {
     localStorage.removeItem('conexia_clinical_sessions');
     localStorage.removeItem('conexia_messages');
     localStorage.removeItem('conexia_meetings');
+    localStorage.removeItem('conexia_rice_protocols');
 
     const defaultAdmin: Staff = {
       id: "admin-2",
@@ -1256,7 +1402,7 @@ export const dbService = {
     if (!useMock && db) {
       try {
         console.log("Limpiando colecciones de Firestore...");
-        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers'];
+        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers', 'rice_protocols'];
         for (const colName of collections) {
           const snap = await getDocs(collection(db, colName));
           for (const d of snap.docs) {

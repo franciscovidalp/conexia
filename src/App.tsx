@@ -12,7 +12,8 @@ import { LandingPage } from './components/LandingPage';
 import { ClimateDiagnosisModule } from './components/ClimateDiagnosisModule';
 import { PublicSurveyForm } from './components/PublicSurveyForm';
 import { dbService } from './firebase';
-import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase } from './types';
+import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol } from './types';
+import { RiceProtocolsModule } from './components/RiceProtocolsModule';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
@@ -32,6 +33,7 @@ function App() {
   const [coexistenceCases, setCoexistenceCases] = useState<CoexistenceCase[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [psychosocialCases, setPsychosocialCases] = useState<PsychosocialCase[]>([]);
+  const [riceProtocols, setRiceProtocols] = useState<RiceProtocol[]>([]);
   const [cacheStatus, setCacheStatus] = useState<'loading' | 'cached' | 'error'>('loading');
 
   // 10 Color Theme state
@@ -80,12 +82,14 @@ function App() {
       const casesObj = await dbService.getCoexistenceCases(school, 1000);
       const loadedActivities = await dbService.getActivities(school);
       const loadedPsychosocial = await dbService.getPsychosocialCases(school);
-
+      const loadedProtocols = await dbService.getRiceProtocols(school);
+ 
       setStudents(loadedStudents);
       setStaff(loadedStaff);
       setCoexistenceCases(casesObj?.data || []);
       setActivities(loadedActivities || []);
       setPsychosocialCases(loadedPsychosocial || []);
+      setRiceProtocols(loadedProtocols || []);
       setCacheStatus('cached');
     } catch (e) {
       console.error("Error al cargar la base de datos: ", e);
@@ -188,6 +192,17 @@ function App() {
             onRefreshStudents={refreshStudentsState}
             coexistenceCases={coexistenceCases}
             onCoexistenceCasesChange={setCoexistenceCases}
+          />
+        )}
+
+        {activeTab === 'protocols' && (
+          <RiceProtocolsModule
+            activeSchool={activeSchool}
+            students={students}
+            staff={staff}
+            loggedInUser={loggedInUser!}
+            riceProtocols={riceProtocols}
+            onRiceProtocolsChange={setRiceProtocols}
           />
         )}
 

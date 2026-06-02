@@ -9,7 +9,8 @@ import {
   Settings,
   User,
   MessageSquare,
-  BarChart3
+  BarChart3,
+  ClipboardCheck
 } from 'lucide-react';
 import type { SchoolType, UserRole, Staff, School } from '../types';
 
@@ -40,6 +41,7 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const menuItems = [
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
+    { id: 'protocols', label: 'Protocolos RICE', icon: ClipboardCheck },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
     { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },

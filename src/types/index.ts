@@ -156,3 +156,30 @@ export interface SurveyAnswer {
   submittedAt: string;
 }
 
+export interface ProtocolStep {
+  id: string;
+  name: string;
+  description: string;
+  status: 'Pendiente' | 'En Proceso' | 'Completado';
+  completedAt?: string;
+  completedBy?: string;
+  notes?: string;
+  fields?: { [key: string]: any };
+}
+
+export interface RiceProtocol {
+  id: string;
+  caseId?: string;
+  studentId: string;
+  studentName: string;
+  grade: string;
+  school: SchoolType;
+  protocolType: 'Bullying' | 'Violencia Escolar' | 'Vulneración de Derechos' | 'Drogas/Alcohol' | 'Ciberacoso' | 'Riesgo Suicida';
+  status: 'Abierto' | 'Cerrado';
+  steps: ProtocolStep[];
+  startedAt: string;
+  closedAt?: string;
+  dueDate: string;
+  createdAt: string;
+}
+

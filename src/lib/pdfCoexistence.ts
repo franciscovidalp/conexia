@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { CoexistenceCase, Student, Staff, Activity, PsychosocialCase, ClinicalSession } from '../types';
+import type { CoexistenceCase, Student, Staff, Activity, PsychosocialCase, ClinicalSession, RiceProtocol } from '../types';
 
 // Helper to draw header
 const drawHeader = (doc: jsPDF, school: string, title: string, color: [number, number, number]) => {
@@ -433,4 +433,186 @@ export const exportAllActivitiesReportPDF = (activities: Activity[]) => {
   });
 
   doc.save('conexia_reporte_actividades_general.pdf');
+};
+
+export const exportRiceProtocolPDF = (
+  p: RiceProtocol,
+  student: Student,
+  responsible: Staff | undefined
+) => {
+  const doc = new jsPDF();
+  const themeColor: [number, number, number] = p.status === 'Abierto' ? [30, 41, 59] : [15, 118, 110]; // slate-800 or teal-700
+
+  // Draw Header
+  drawHeader(doc, p.school, 'EXPEDIENTE DE PROTOCOLO DE ACTUACIÓN RICE', themeColor);
+
+  // Student & Protocol details
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59); // slate-800
+  doc.text('1. ANTECEDENTES GENERALES', 15, 48);
+
+  autoTable(doc, {
+    startY: 52,
+    head: [['Estudiante', 'RUT', 'Curso', 'Protocolo Tipo', 'Estado']],
+    body: [[
+      `${student.firstName} ${student.lastName}`,
+      student.rut,
+      student.grade,
+      p.protocolType,
+      p.status.toUpperCase()
+    ]],
+    theme: 'striped',
+    headStyles: { fillColor: themeColor },
+    margin: { left: 15, right: 15 }
+  });
+
+  const nextY1 = (doc as any).lastAutoTable.finalY + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fechas y Plazos del Proceso:', 15, nextY1);
+
+  autoTable(doc, {
+    startY: nextY1 + 4,
+    head: [['Fecha de Inicio', 'Plazo Límite (15 Días Hábiles)', 'Fecha de Cierre']],
+    body: [[
+      p.startedAt,
+      p.dueDate,
+      p.closedAt || 'EN PROCESO / ABIERTO'
+    ]],
+    theme: 'plain',
+    margin: { left: 15, right: 15 }
+  });
+
+  // Stage Summary Table
+  const nextY2 = (doc as any).lastAutoTable.finalY + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('2. RESUMEN DE ETAPAS CUMPLIDAS', 15, nextY2);
+
+  autoTable(doc, {
+    startY: nextY2 + 4,
+    head: [['Etapa RICE', 'Estado', 'Completado por', 'Fecha']],
+    body: p.steps.map(step => [
+      step.name,
+      step.status,
+      step.completedBy || 'Pendiente',
+      step.completedAt || 'N/A'
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: [71, 85, 105] }, // slate-600
+    margin: { left: 15, right: 15 }
+  });
+
+  // Bitacora Details
+  let nextY3 = (doc as any).lastAutoTable.finalY + 10;
+  if (nextY3 > 210) {
+    doc.addPage();
+    nextY3 = 20;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.text('3. BITÁCORA Y DETALLE POR ETAPA', 15, nextY3);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+
+  let currentY = nextY3 + 6;
+
+  p.steps.forEach((step) => {
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 20;
+    }
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${step.name} - [${step.status}]`, 15, currentY);
+    doc.setFont('helvetica', 'normal');
+    
+    // Notes text
+    const notesText = step.notes ? `Observaciones: ${step.notes}` : 'Sin observaciones registradas.';
+    const splitNotes = doc.splitTextToSize(notesText, 180);
+    doc.text(splitNotes, 15, currentY + 5);
+    
+    let offset = 6 + (splitNotes.length * 4.5);
+
+    // Custom fields printing based on step
+    if (step.id === '1_detection' && step.fields?.initialMeasures) {
+      const fieldText = `Medidas inmediatas de resguardo: ${step.fields.initialMeasures}`;
+      const splitField = doc.splitTextToSize(fieldText, 180);
+      doc.setFont('helvetica', 'italic');
+      doc.text(splitField, 15, currentY + offset);
+      doc.setFont('helvetica', 'normal');
+      offset += (splitField.length * 4.5);
+    } 
+    else if (step.id === '2_notification' && step.fields) {
+      const fieldText = `Citación Apoderado Víctima: ${step.fields.victimParentNotifiedDate || 'N/A'} | Citación Apoderado Denunciado: ${step.fields.aggressorParentNotifiedDate || 'N/A'}\nMedio de Notificación: ${step.fields.communicationType || 'N/A'}`;
+      const splitField = doc.splitTextToSize(fieldText, 180);
+      doc.setFont('helvetica', 'italic');
+      doc.text(splitField, 15, currentY + offset);
+      doc.setFont('helvetica', 'normal');
+      offset += (splitField.length * 4.5) + 2;
+    }
+    else if (step.id === '3_investigation' && step.fields) {
+      const fieldText = `Testigos/Entrevistados: ${Array.isArray(step.fields.interviews) ? step.fields.interviews.join(', ') : 'Ninguno'}\nConclusiones de la Investigación: ${step.fields.findings || 'N/A'}`;
+      const splitField = doc.splitTextToSize(fieldText, 180);
+      doc.setFont('helvetica', 'italic');
+      doc.text(splitField, 15, currentY + offset);
+      doc.setFont('helvetica', 'normal');
+      offset += (splitField.length * 4.5) + 2;
+    }
+    else if (step.id === '4_resolution' && step.fields) {
+      const fieldText = `Tipo de Medida/Sanción: ${step.fields.measureType || 'N/A'}\nDescripción de la Medida: ${step.fields.resolutionDescription || 'N/A'}\n¿Firma de Compromiso?: ${step.fields.commitmentsSigned ? 'SÍ' : 'NO'}`;
+      const splitField = doc.splitTextToSize(fieldText, 180);
+      doc.setFont('helvetica', 'italic');
+      doc.text(splitField, 15, currentY + offset);
+      doc.setFont('helvetica', 'normal');
+      offset += (splitField.length * 4.5) + 2;
+    }
+    else if (step.id === '5_followup' && step.fields) {
+      const fieldText = `¿Derivado a Dupla Psicosocial?: ${step.fields.referredToDupla ? 'SÍ' : 'NO'} | Próximo Seguimiento: ${step.fields.followupDate || 'N/A'}\nResumen de Cierre: ${step.fields.finalReportSummary || 'N/A'}`;
+      const splitField = doc.splitTextToSize(fieldText, 180);
+      doc.setFont('helvetica', 'italic');
+      doc.text(splitField, 15, currentY + offset);
+      doc.setFont('helvetica', 'normal');
+      offset += (splitField.length * 4.5) + 2;
+    }
+
+    doc.setDrawColor(241, 245, 249); // slate-100 divider
+    doc.line(15, currentY + offset, 195, currentY + offset);
+    currentY += offset + 6;
+  });
+
+  // Confidentiality warning
+  if (currentY > 230) {
+    doc.addPage();
+    currentY = 20;
+  }
+  
+  const warnY = doc.internal.pageSize.height - 70;
+  
+  doc.setFillColor(254, 242, 242); // red-50
+  doc.setDrawColor(248, 113, 113); // red-400
+  doc.rect(15, warnY, 180, 20, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(185, 28, 28); // red-700
+  doc.text('ADVERTENCIA DE CONFIDENCIALIDAD (Ley N° 19.628 de Protección de la Vida Privada):', 20, warnY + 6);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 41, 59);
+  doc.text('Este documento contiene información privada de un proceso disciplinario escolar. Su divulgación a terceros ajenos', 20, warnY + 12);
+  doc.text('al caso está estrictamente prohibida y sancionada por la legislación vigente.', 20, warnY + 16);
+
+  // Signatures
+  const names = [
+    `${responsible?.firstName || ''} ${responsible?.lastName || 'Encargado(a)'}`,
+    'Dirección del Establecimiento',
+    'Apoderado / Tutor'
+  ];
+  const roles = [
+    responsible?.role || 'Encargado(a) Convivencia',
+    'Representante Legal / Director(a)',
+    'Firma Conforme'
+  ];
+  
+  drawSignatures(doc, names, roles, warnY + 25);
+
+  doc.save(`conexia_protocolo_${p.id}.pdf`);
 };
