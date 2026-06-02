@@ -322,6 +322,22 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     }
   };
 
+  const handleClearAllDatabase = async () => {
+    if (window.confirm('¿Está ABSOLUTAMENTE seguro de borrar todos los datos del sistema? Esta acción eliminará permanentemente todos los colegios, alumnos, historiales y personal, y re-inicializará tu cuenta de administrador.')) {
+      if (window.confirm('Confirme por segunda vez: ¿Realmente desea borrar todo?')) {
+        try {
+          await dbService.clearAllData();
+          toast.success('Base de datos limpiada con éxito. Redirigiendo...');
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } catch (e) {
+          toast.error('Error al limpiar base de datos.');
+        }
+      }
+    }
+  };
+
   // ----------------------------------------------------
   // CSV FILE PARSING
   // ----------------------------------------------------
@@ -495,36 +511,56 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       {/* TAB 1: THEMES CONFIGURATION */}
       {/* ---------------------------------------------------- */}
       {activeTab === 'themes' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6 animate-in fade-in">
-          <div>
-            <h3 className="font-bold text-lg text-slate-800">Seleccionar Paleta de Colores</h3>
-            <p className="text-xs text-slate-500">Cambia la colorimetría de la interfaz SPA de inmediato. Selecciona uno de los 10 esquemas de diseño:</p>
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+            <div>
+              <h3 className="font-bold text-lg text-slate-800">Seleccionar Paleta de Colores</h3>
+              <p className="text-xs text-slate-500">Cambia la colorimetría de la interfaz SPA de inmediato. Selecciona uno de los 10 esquemas de diseño:</p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {THEMES.map(theme => {
+                const isSelected = activeTheme.id === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => setActiveTheme(theme)}
+                    className={`flex flex-col items-center p-4 border rounded-2xl text-center gap-3 transition-all relative group cursor-pointer ${
+                      isSelected 
+                        ? 'border-primary bg-primary-light/10 ring-2 ring-primary' 
+                        : 'border-slate-200 hover:border-slate-355 bg-slate-50'
+                    }`}
+                  >
+                    <div className={`w-12 h-12 rounded-full ${theme.previewBg} shadow-md flex items-center justify-center text-white`}>
+                      {isSelected && <CheckCircle size={20} />}
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">{theme.name}</span>
+                      <span className="text-[10px] text-slate-400 font-mono capitalize">{theme.id}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {THEMES.map(theme => {
-              const isSelected = activeTheme.id === theme.id;
-              return (
-                <button
-                  key={theme.id}
-                  onClick={() => setActiveTheme(theme)}
-                  className={`flex flex-col items-center p-4 border rounded-2xl text-center gap-3 transition-all relative group cursor-pointer ${
-                    isSelected 
-                      ? 'border-primary bg-primary-light/10 ring-2 ring-primary' 
-                      : 'border-slate-200 hover:border-slate-355 bg-slate-50'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-full ${theme.previewBg} shadow-md flex items-center justify-center text-white`}>
-                    {isSelected && <CheckCircle size={20} />}
-                  </div>
-                  <div>
-                    <span className="font-bold text-xs text-slate-800 block">{theme.name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono capitalize">{theme.id}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          {/* Danger Zone (Admin Only) */}
+          {isAdmin && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 space-y-4 shadow-sm">
+              <div>
+                <h3 className="font-bold text-red-800 text-base">Zona de Peligro Administrativo</h3>
+                <p className="text-xs text-red-750/90 leading-relaxed mt-1">
+                  Limpiar base de datos borrará de forma permanente todos los colegios, alumnos, funcionarios e incidencias registradas. La cuenta del administrador se volverá a crear por defecto para que puedas volver a iniciar sesión.
+                </p>
+              </div>
+              <button
+                onClick={handleClearAllDatabase}
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow cursor-pointer transition-colors"
+              >
+                Limpiar Base de Datos y Re-iniciar
+              </button>
+            </div>
+          )}
         </div>
       )}
 

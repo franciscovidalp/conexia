@@ -3,7 +3,6 @@ import {
   getFirestore, 
   collection, 
   getDocs, 
-  addDoc, 
   updateDoc, 
   doc, 
   query, 
@@ -11,7 +10,8 @@ import {
   limit, 
   startAfter, 
   orderBy,
-  deleteDoc
+  deleteDoc,
+  setDoc
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -185,22 +185,22 @@ export const dbService = {
       
       // Seed schools
       for (const sch of INITIAL_SCHOOLS) {
-        await addDoc(collection(db, 'schools'), sch);
+        await setDoc(doc(db, 'schools', sch.id), sch);
       }
       
       // Seed staff
       for (const st of MOCK_STAFF) {
-        await addDoc(collection(db, 'staff'), st);
+        await setDoc(doc(db, 'staff', st.id || st.rut), st);
       }
 
       // Seed students
       for (const std of MOCK_STUDENTS) {
-        await addDoc(collection(db, 'students'), std);
+        await setDoc(doc(db, 'students', std.id || std.rut), std);
       }
 
       // Seed coexistence cases
       for (const cs of INITIAL_COEXISTENCE_CASES) {
-        await addDoc(collection(db, 'coexistence_cases'), cs);
+        await setDoc(doc(db, 'coexistence_cases', cs.id), cs);
       }
       
       console.log("Firestore successfully seeded with schools, staff, students, and cases!");
@@ -234,7 +234,7 @@ export const dbService = {
     };
     if (!useMock) {
       try {
-        await addDoc(collection(db, 'schools'), newSch);
+        await setDoc(doc(db, 'schools', newSch.id), newSch);
       } catch (e) {
         console.error("Firestore school create failed:", e);
       }
@@ -324,7 +324,7 @@ export const dbService = {
     };
     if (!useMock) {
       try {
-        await addDoc(collection(db, 'students'), newStd);
+        await setDoc(doc(db, 'students', newStd.id), newStd);
       } catch (e) {
         console.error(e);
       }
@@ -374,14 +374,16 @@ export const dbService = {
       try {
         for (const row of csvRows) {
           if (!row.rut) continue;
-          await addDoc(collection(db, 'students'), {
-            rut: row.rut.trim(),
+          const rutKey = row.rut.trim();
+          await setDoc(doc(db, 'students', rutKey), {
+            id: rutKey,
+            rut: rutKey,
             firstName: row.nombre.trim(),
             lastName: row.apellido.trim(),
             school: schoolName,
             grade: row.curso.trim(),
             conductScore: 100,
-            email: row.email || ''
+            email: row.email ? row.email.trim() : ''
           });
         }
       } catch (e) {
@@ -455,7 +457,7 @@ export const dbService = {
     };
     if (!useMock) {
       try {
-        await addDoc(collection(db, 'staff'), newStaff);
+        await setDoc(doc(db, 'staff', newStaff.id), newStaff);
       } catch (err) {
         console.error("Firestore staff create failed:", err);
       }
@@ -570,8 +572,7 @@ export const dbService = {
 
     if (!useMock) {
       try {
-        const docRef = await addDoc(collection(db, 'coexistence_cases'), newCase);
-        newCase.id = docRef.id;
+        await setDoc(doc(db, 'coexistence_cases', newCase.id), newCase);
       } catch (err) {
         console.error("Firestore save failed:", err);
       }
@@ -664,8 +665,7 @@ export const dbService = {
     };
     if (!useMock) {
       try {
-        const docRef = await addDoc(collection(db, 'activities'), newAct);
-        newAct.id = docRef.id;
+        await setDoc(doc(db, 'activities', newAct.id), newAct);
       } catch (err) {
         console.error(err);
       }
@@ -731,8 +731,7 @@ export const dbService = {
     };
     if (!useMock) {
       try {
-        const docRef = await addDoc(collection(db, 'psychosocial_cases'), newPC);
-        newPC.id = docRef.id;
+        await setDoc(doc(db, 'psychosocial_cases', newPC.id), newPC);
       } catch (err) {
         console.error(err);
       }
@@ -835,8 +834,7 @@ export const dbService = {
     };
     if (!useMock) {
       try {
-        const docRef = await addDoc(collection(db, 'clinical_sessions'), newSess);
-        newSess.id = docRef.id;
+        await setDoc(doc(db, 'clinical_sessions', newSess.id), newSess);
       } catch (err) {
         console.error(err);
       }
@@ -912,7 +910,7 @@ export const dbService = {
       
       if (!useMock) {
         try {
-          await addDoc(collection(db, 'staff'), matchedStaff);
+          await setDoc(doc(db, 'staff', matchedStaff.id), matchedStaff);
         } catch (e) {
           console.warn("Could not sync admin registration to Firestore:", e);
         }
@@ -959,6 +957,50 @@ export const dbService = {
         await fbSignOut(auth);
       } catch (err) {
         console.error(err);
+      }
+    }
+  },
+
+  async clearAllData(): Promise<void> {
+    // Clear LocalStorage
+    localStorage.removeItem('conexia_schools');
+    localStorage.removeItem('conexia_students');
+    localStorage.removeItem('conexia_staff');
+    localStorage.removeItem('conexia_coexistence_cases');
+    localStorage.removeItem('conexia_activities');
+    localStorage.removeItem('conexia_psychosocial_cases');
+    localStorage.removeItem('conexia_clinical_sessions');
+
+    const defaultAdmin: Staff = {
+      id: "admin-2",
+      rut: "8.888.888-8",
+      firstName: "Francisco Javier",
+      lastName: "Vidal",
+      school: "Colegio BioBío",
+      role: "Administrador",
+      email: "franciscojavier.vidal.p@gmail.com"
+    };
+
+    // Re-seed admin locally
+    const newStaffList = [defaultAdmin];
+    saveLocalData('staff', newStaffList);
+
+    if (!useMock && db) {
+      try {
+        console.log("Limpiando colecciones de Firestore...");
+        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions'];
+        for (const colName of collections) {
+          const snap = await getDocs(collection(db, colName));
+          for (const d of snap.docs) {
+            await deleteDoc(doc(db, colName, d.id));
+          }
+        }
+        // Re-create default admin in Firestore
+        await setDoc(doc(db, 'staff', defaultAdmin.id), defaultAdmin);
+        console.log("Firestore limpiado y administrador restablecido.");
+      } catch (err) {
+        console.error("Error limpiando base de datos Firestore:", err);
+        throw err;
       }
     }
   }
