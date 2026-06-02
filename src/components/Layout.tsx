@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ShieldAlert, 
   CalendarRange, 
@@ -10,7 +10,9 @@ import {
   User,
   MessageSquare,
   BarChart3,
-  ClipboardCheck
+  ClipboardCheck,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import type { SchoolType, UserRole, Staff, School } from '../types';
 
@@ -27,6 +29,87 @@ interface LayoutProps {
   schools: School[];
 }
 
+const MODULE_HELP: Record<string, { title: string; desc: string; steps: string[] }> = {
+  climate: {
+    title: "Diagnóstico DIA",
+    desc: "Cuestionarios socioemocionales de Convivencia Escolar y clima de aula alineados con DIA Mineduc. Permite compartir enlaces y diagnosticar riesgos.",
+    steps: [
+      "Copia el enlace de encuesta del curso y compártelo con alumnos/apoderados.",
+      "Revisa la retroalimentación grupal automática con fortalezas y áreas críticas del aula.",
+      "Haz clic en cualquier fila para ver el desglose Likert individual y su recomendación clínica.",
+      "Deriva con un solo clic a estudiantes con indicadores de riesgo crítico directo a la Dupla Psicosocial."
+    ]
+  },
+  activities: {
+    title: "Vínculo Escolar",
+    desc: "Planificación, agendamiento y evaluación de talleres preventivos y de contención emocional en la comunidad escolar.",
+    steps: [
+      "Presiona 'Planificar Actividad' para definir un nuevo taller o asamblea.",
+      "Configura el tipo de público (Masivo por cursos o Focalizado por estudiantes).",
+      "Registra asistencia rápida y resume el balance de objetivos tras finalizar la actividad.",
+      "Las actividades agendadas se sincronizan de inmediato con el Calendario Maestro."
+    ]
+  },
+  coexistence: {
+    title: "Convivencia Pro",
+    desc: "Registro digital de anotaciones de incidentes escolares menores, graves y gravísimos, así como felicitaciones positivas.",
+    steps: [
+      "Filtra o busca alumnos por curso en la columna lateral izquierda.",
+      "Observa el semáforo de riesgo conductual (Verde, Naranja, Rojo) y su puntaje de vida.",
+      "Presiona 'Registrar Anotación' para consignar una falta o anotación positiva.",
+      "El sistema descontará o sumará los puntos reglamentarios RICE en tiempo real."
+    ]
+  },
+  protocols: {
+    title: "Protocolos RICE",
+    desc: "Activación, bitácora jurídica de 5 etapas reglamentarias de fiscalización RICE (Mineduc/Supereduc) y exportación de actas.",
+    steps: [
+      "Presiona 'Activar Protocolo RICE' para abrir un caso formal.",
+      "Selecciona primero el Curso para que el sistema filtre de forma inmediata la lista de alumnos.",
+      "Registra y firma cada una de las 5 etapas (Detección, Citación, Testigos, Medidas, Cierre).",
+      "Descarga el Acta Final del expediente en PDF con marcas de tiempo y resguardo de datos legales."
+    ]
+  },
+  psychosocial: {
+    title: "Dupla Psicosocial",
+    desc: "Espacio de trabajo privado e intervenciones terapéuticas para psicólogos y trabajadores sociales.",
+    steps: [
+      "Organiza el flujo clínico mediante el tablero Kanban (Ingresado, Intervención, Derivado, Alta).",
+      "Haz clic en un expediente para examinar el historial familiar y de entrevistas.",
+      "Registra bitácoras detalladas para cada sesión con el alumno, apoderados o redes externas.",
+      "Exporta el reporte clínico completo en PDF con marcas temporales resguardadas."
+    ]
+  },
+  calendar: {
+    title: "Calendario Maestro",
+    desc: "Cuadrícula unificada de planificación de eventos, atenciones psicosociales, talleres y plazos límite RICE.",
+    steps: [
+      "Filtra los tipos de eventos mostrados seleccionando los botones superiores por color.",
+      "Haz clic en cualquier día o evento para expandir la agenda y participantes.",
+      "Presiona 'Agendar Reunión' para programar citaciones formales o consejos de profesores.",
+      "Los hitos críticos de RICE y derivaciones de la dupla se auto-sincronizan en esta vista."
+    ]
+  },
+  messaging: {
+    title: "Mensajería Segura",
+    desc: "Bandeja de entrada interna y confidencial entre funcionarios de la misma comunidad escolar para derivaciones rápidas.",
+    steps: [
+      "Busca a tu colega en la nómina de funcionarios del establecimiento en la izquierda.",
+      "Escribe consultas o notifica derivaciones confidenciales de estudiantes de manera directa.",
+      "La bandeja de entrada cuenta con sincronización en tiempo real para agilizar la coordinación."
+    ]
+  },
+  settings: {
+    title: "Ajustes y Carga",
+    desc: "Parámetros globales de Conexia, importación masiva de nóminas y personalización de temas visuales.",
+    steps: [
+      "Elige una de las 10 paletas de colores premium disponibles para el portal escolar.",
+      "Administra los establecimientos, RUTs de directivos y credenciales de acceso.",
+      "Sube nóminas de alumnos en formato CSV para poblar las bases de datos de forma masiva."
+    ]
+  }
+};
+
 export const Layout: React.FC<LayoutProps> = ({
   children,
   activeTab,
@@ -39,22 +122,26 @@ export const Layout: React.FC<LayoutProps> = ({
   onLogout,
   schools
 }) => {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   const menuItems = [
+    { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },
+    { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
     { id: 'protocols', label: 'Protocolos RICE', icon: ClipboardCheck },
-    { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
-    { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },
     { id: 'calendar', label: 'Calendario', icon: CalendarRange },
     { id: 'messaging', label: 'Mensajería', icon: MessageSquare },
     { id: 'settings', label: 'Ajustes y Carga', icon: Settings }
   ];
 
+  const currentHelp = MODULE_HELP[activeTab];
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
       
       {/* SIDEBAR */}
-      <aside className="w-64 bg-gradient-to-b from-slate-950 to-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-2xl border-r border-slate-950">
+      <aside className="w-64 bg-gradient-to-b from-slate-950 to-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-2xl border-r border-slate-955">
         <div>
           {/* Brand header */}
           <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
@@ -145,7 +232,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
 
-          {/* Status Indicator */}
+          {/* Status Indicator & Help Trigger */}
           <div className="flex items-center gap-3">
             {cacheStatus === 'loading' && (
               <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 text-xs animate-pulse font-medium">
@@ -153,12 +240,60 @@ export const Layout: React.FC<LayoutProps> = ({
                 <span>Cargando...</span>
               </div>
             )}
+            
+            <button
+              onClick={() => setIsHelpOpen(!isHelpOpen)}
+              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                isHelpOpen
+                  ? 'bg-primary-light text-primary border-primary/20 shadow-sm'
+                  : 'bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200 hover:bg-slate-100'
+              }`}
+              title="Guía de uso del módulo"
+            >
+              <HelpCircle size={18} />
+            </button>
           </div>
         </header>
 
         {/* MODULE WORKSPACE */}
         <section className="flex-1 overflow-y-auto p-6 md:p-8 relative">
-          <div className="max-w-7xl mx-auto w-full h-full">
+          <div className="max-w-7xl mx-auto w-full h-full space-y-6">
+            {isHelpOpen && currentHelp && (
+              <div className="bg-gradient-to-r from-slate-900 to-slate-850 text-white rounded-2xl p-5 shadow-lg border border-slate-800 animate-zoom-in relative overflow-hidden">
+                {/* Close Button */}
+                <button
+                  onClick={() => setIsHelpOpen(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+
+                {/* Decorative glow */}
+                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
+
+                <div className="flex gap-4.5 items-start">
+                  <div className="p-3 bg-primary-light/10 text-primary rounded-xl shrink-0 mt-0.5 border border-primary/20">
+                    <HelpCircle size={22} className="text-primary" />
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold tracking-tight">Guía de Uso: {currentHelp.title}</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">{currentHelp.desc}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-300">
+                      {currentHelp.steps.map((step, idx) => (
+                        <div key={idx} className="flex gap-2 items-start bg-white/5 p-2.5 rounded-xl border border-white/5">
+                          <span className="font-mono font-bold text-primary">{idx + 1}.</span>
+                          <span className="leading-snug">{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {children}
           </div>
         </section>
