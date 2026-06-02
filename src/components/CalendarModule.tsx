@@ -45,6 +45,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
+  const [filterTypes, setFilterTypes] = useState({
+    workshop: true,
+    session: true,
+    meeting: true,
+    case: true
+  });
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -222,7 +228,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   ];
 
   const getEventsForDate = (dateStr: string) => {
-    return events.filter(e => e.date === dateStr);
+    return events.filter(e => e.date === dateStr && filterTypes[e.type]);
   };
 
   const selectedDateEvents = getEventsForDate(selectedDate);
@@ -256,6 +262,55 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <ChevronRight className="w-4 h-4 text-slate-600" />
             </button>
           </div>
+        </div>
+
+        {/* Filtros de Eventos */}
+        <div className="flex flex-wrap gap-2 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-200">
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider self-center px-2">Filtrar:</span>
+          <button
+            onClick={() => setFilterTypes(prev => ({ ...prev, workshop: !prev.workshop }))}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterTypes.workshop
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-655'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${filterTypes.workshop ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+            <span>Talleres Preventivos</span>
+          </button>
+          <button
+            onClick={() => setFilterTypes(prev => ({ ...prev, session: !prev.session }))}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterTypes.session
+                ? 'bg-violet-50 border-violet-300 text-violet-750 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-655'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${filterTypes.session ? 'bg-violet-500' : 'bg-slate-300'}`}></span>
+            <span>Sesiones Psicosociales</span>
+          </button>
+          <button
+            onClick={() => setFilterTypes(prev => ({ ...prev, meeting: !prev.meeting }))}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterTypes.meeting
+                ? 'bg-sky-50 border-sky-300 text-sky-750 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-655'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${filterTypes.meeting ? 'bg-sky-500' : 'bg-slate-300'}`}></span>
+            <span>Citaciones y Reuniones</span>
+          </button>
+          <button
+            onClick={() => setFilterTypes(prev => ({ ...prev, case: !prev.case }))}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterTypes.case
+                ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-655'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${filterTypes.case ? 'bg-rose-500' : 'bg-slate-300'}`}></span>
+            <span>Casos Convivencia RICE</span>
+          </button>
         </div>
 
         {loading ? (
