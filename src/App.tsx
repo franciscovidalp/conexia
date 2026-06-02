@@ -1,21 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layout } from './components/Layout';
-import { SchoolCoexistence } from './components/SchoolCoexistence';
-import { SchoolActivities } from './components/SchoolActivities';
-import { PsychosocialModule } from './components/PsychosocialModule';
-import { CalendarModule } from './components/CalendarModule';
-import { MessagingModule } from './components/MessagingModule';
-import { SettingsModule, THEMES } from './components/SettingsModule';
-import type { ColorTheme } from './components/SettingsModule';
-import { LoginModule } from './components/LoginModule';
-import { LandingPage } from './components/LandingPage';
-import { ClimateDiagnosisModule } from './components/ClimateDiagnosisModule';
-import { PublicSurveyForm } from './components/PublicSurveyForm';
 import { dbService } from './firebase';
 import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol } from './types';
-import { RiceProtocolsModule } from './components/RiceProtocolsModule';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
+
+// Shared color themes
+import { THEMES } from './lib/themes';
+import type { ColorTheme } from './lib/themes';
+
+// Lazy load dashboard modules for optimal initial page loading speed (split chunks)
+const SchoolCoexistence = lazy(() => import('./components/SchoolCoexistence').then(m => ({ default: m.SchoolCoexistence })));
+const SchoolActivities = lazy(() => import('./components/SchoolActivities').then(m => ({ default: m.SchoolActivities })));
+const PsychosocialModule = lazy(() => import('./components/PsychosocialModule').then(m => ({ default: m.PsychosocialModule })));
+const CalendarModule = lazy(() => import('./components/CalendarModule').then(m => ({ default: m.CalendarModule })));
+const MessagingModule = lazy(() => import('./components/MessagingModule').then(m => ({ default: m.MessagingModule })));
+const SettingsModule = lazy(() => import('./components/SettingsModule').then(m => ({ default: m.SettingsModule })));
+const LoginModule = lazy(() => import('./components/LoginModule').then(m => ({ default: m.LoginModule })));
+const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+const ClimateDiagnosisModule = lazy(() => import('./components/ClimateDiagnosisModule').then(m => ({ default: m.ClimateDiagnosisModule })));
+const PublicSurveyForm = lazy(() => import('./components/PublicSurveyForm').then(m => ({ default: m.PublicSurveyForm })));
+const RiceProtocolsModule = lazy(() => import('./components/RiceProtocolsModule').then(m => ({ default: m.RiceProtocolsModule })));
+
 
 function App() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -143,11 +149,18 @@ function App() {
     return (
       <>
         <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
-        <PublicSurveyForm 
-          surveyId={surveyIdParam}
-          schoolName={schoolParam || ''}
-          gradeName={gradeParam || ''}
-        />
+        <Suspense fallback={
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3 font-sans">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-sm font-semibold">Cargando diagnóstico...</p>
+          </div>
+        }>
+          <PublicSurveyForm 
+            surveyId={surveyIdParam}
+            schoolName={schoolParam || ''}
+            gradeName={gradeParam || ''}
+          />
+        </Suspense>
       </>
     );
   }
@@ -157,17 +170,24 @@ function App() {
     return (
       <>
         <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
-        {isLoginOpen ? (
-          <LoginModule 
-            onLoginSuccess={(schoolName, role, staffMember) => {
-              setIsLoginOpen(false);
-              handleLoginSuccess(schoolName, role, staffMember);
-            }} 
-            onClose={() => setIsLoginOpen(false)}
-          />
-        ) : (
-          <LandingPage onLoginClick={() => setIsLoginOpen(true)} />
-        )}
+        <Suspense fallback={
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3 font-sans">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+            <p className="text-sm font-semibold">Cargando Conexia...</p>
+          </div>
+        }>
+          {isLoginOpen ? (
+            <LoginModule 
+              onLoginSuccess={(schoolName, role, staffMember) => {
+                setIsLoginOpen(false);
+                handleLoginSuccess(schoolName, role, staffMember);
+              }} 
+              onClose={() => setIsLoginOpen(false)}
+            />
+          ) : (
+            <LandingPage onLoginClick={() => setIsLoginOpen(true)} />
+          )}
+        </Suspense>
       </>
     );
   }
@@ -187,83 +207,90 @@ function App() {
         onLogout={handleLogout}
         schools={schools}
       >
-        {activeTab === 'coexistence' && (
-          <SchoolCoexistence
-            activeSchool={activeSchool}
-            students={students}
-            staff={staff}
-            onRefreshStudents={refreshStudentsState}
-            coexistenceCases={coexistenceCases}
-            onCoexistenceCasesChange={setCoexistenceCases}
-          />
-        )}
+        <Suspense fallback={
+          <div className="h-full w-full flex flex-col items-center justify-center text-slate-400 gap-3 min-h-[400px] font-sans">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-sm font-semibold">Cargando módulo de Convivencia...</p>
+          </div>
+        }>
+          {activeTab === 'coexistence' && (
+            <SchoolCoexistence
+              activeSchool={activeSchool}
+              students={students}
+              staff={staff}
+              onRefreshStudents={refreshStudentsState}
+              coexistenceCases={coexistenceCases}
+              onCoexistenceCasesChange={setCoexistenceCases}
+            />
+          )}
 
-        {activeTab === 'protocols' && (
-          <RiceProtocolsModule
-            activeSchool={activeSchool}
-            students={students}
-            staff={staff}
-            loggedInUser={loggedInUser!}
-            riceProtocols={riceProtocols}
-            onRiceProtocolsChange={setRiceProtocols}
-          />
-        )}
+          {activeTab === 'protocols' && (
+            <RiceProtocolsModule
+              activeSchool={activeSchool}
+              students={students}
+              staff={staff}
+              loggedInUser={loggedInUser!}
+              riceProtocols={riceProtocols}
+              onRiceProtocolsChange={setRiceProtocols}
+            />
+          )}
 
-        {activeTab === 'activities' && (
-          <SchoolActivities
-            activeSchool={activeSchool}
-            students={students}
-            activities={activities}
-            onActivitiesChange={setActivities}
-          />
-        )}
+          {activeTab === 'activities' && (
+            <SchoolActivities
+              activeSchool={activeSchool}
+              students={students}
+              activities={activities}
+              onActivitiesChange={setActivities}
+            />
+          )}
 
-        {activeTab === 'psychosocial' && (
-          <PsychosocialModule
-            activeSchool={activeSchool}
-            students={students}
-            staff={staff}
-            loggedInUser={loggedInUser}
-            psychosocialCases={psychosocialCases}
-            onPsychosocialCasesChange={setPsychosocialCases}
-          />
-        )}
+          {activeTab === 'psychosocial' && (
+            <PsychosocialModule
+              activeSchool={activeSchool}
+              students={students}
+              staff={staff}
+              loggedInUser={loggedInUser}
+              psychosocialCases={psychosocialCases}
+              onPsychosocialCasesChange={setPsychosocialCases}
+            />
+          )}
 
-        {activeTab === 'climate' && (
-          <ClimateDiagnosisModule
-            activeSchool={activeSchool}
-            students={students}
-          />
-        )}
+          {activeTab === 'climate' && (
+            <ClimateDiagnosisModule
+              activeSchool={activeSchool}
+              students={students}
+            />
+          )}
 
-        {activeTab === 'settings' && (
-          <SettingsModule
-            activeSchool={activeSchool}
-            schools={schools}
-            onRefreshSchools={loadSchools}
-            students={students}
-            onRefreshStudents={refreshStudentsState}
-            onRefreshStaff={refreshStaffState}
-            activeTheme={activeTheme}
-            setActiveTheme={setActiveTheme}
-            loggedInUser={loggedInUser}
-          />
-        )}
+          {activeTab === 'settings' && (
+            <SettingsModule
+              activeSchool={activeSchool}
+              schools={schools}
+              onRefreshSchools={loadSchools}
+              students={students}
+              onRefreshStudents={refreshStudentsState}
+              onRefreshStaff={refreshStaffState}
+              activeTheme={activeTheme}
+              setActiveTheme={setActiveTheme}
+              loggedInUser={loggedInUser}
+            />
+          )}
 
-        {activeTab === 'calendar' && (
-          <CalendarModule
-            activeSchool={activeSchool}
-            loggedInUser={loggedInUser}
-          />
-        )}
+          {activeTab === 'calendar' && (
+            <CalendarModule
+              activeSchool={activeSchool}
+              loggedInUser={loggedInUser}
+            />
+          )}
 
-        {activeTab === 'messaging' && (
-          <MessagingModule
-            activeSchool={activeSchool}
-            loggedInUser={loggedInUser}
-            staff={staff}
-          />
-        )}
+          {activeTab === 'messaging' && (
+            <MessagingModule
+              activeSchool={activeSchool}
+              loggedInUser={loggedInUser}
+              staff={staff}
+            />
+          )}
+        </Suspense>
       </Layout>
     </>
   );

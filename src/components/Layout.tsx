@@ -54,10 +54,10 @@ export const Layout: React.FC<LayoutProps> = ({
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
       
       {/* SIDEBAR */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-xl border-r border-slate-800">
+      <aside className="w-64 bg-gradient-to-b from-slate-950 to-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-2xl border-r border-slate-950">
         <div>
           {/* Brand header */}
-          <div className="p-5 border-b border-slate-800 flex items-center gap-3">
+          <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
             <img src="/logo.png" alt="Conexia Logo" className="w-10 h-10 object-contain rounded-lg bg-white p-0.5" />
             <div>
               <h1 className="font-bold text-white text-base leading-tight tracking-tight">CONEXIA</h1>
@@ -66,7 +66,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
 
           {/* School Selector Card in Sidebar */}
-          <div className="p-4 mx-4 my-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+          <div className="p-4 mx-4 my-4 bg-white/5 rounded-xl border border-white/10">
             <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
               <Building2 size={14} className="text-primary" />
               <span>Establecimiento</span>
@@ -74,7 +74,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <select
               value={activeSchool}
               onChange={(e) => setActiveSchool(e.target.value)}
-              className="w-full bg-slate-800 text-white rounded-lg border border-slate-650 px-2 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
+              className="w-full bg-slate-900/60 text-white rounded-lg border border-white/10 px-2 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
             >
               {schools.map(s => (
                 <option key={s.id} value={s.name}>{s.name}</option>
@@ -91,10 +91,10 @@ export const Layout: React.FC<LayoutProps> = ({
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 group relative ${
                     isActive 
-                      ? 'bg-slate-800 text-white shadow-inner border-l-4 border-primary' 
-                      : 'hover:bg-slate-800/40 hover:text-slate-200 text-slate-400'
+                      ? 'bg-white/10 text-white shadow-md border-l-4 border-primary backdrop-blur-md' 
+                      : 'hover:bg-white/5 hover:text-slate-200 text-slate-400'
                   }`}
                 >
                   <Icon size={18} className={`${isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-450'} transition-colors`} />
@@ -106,9 +106,9 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Sidebar Footer Logged-in Staff card */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40 space-y-3">
+        <div className="p-4 border-t border-slate-800/80 bg-slate-950/20 space-y-3">
           {loggedInUser && (
-            <div className="flex items-center gap-3 p-1.5 bg-slate-850/40 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/10">
               <div className="w-8 h-8 rounded-lg bg-primary-light/10 text-primary flex items-center justify-center shrink-0">
                 <User size={16} />
               </div>
@@ -121,7 +121,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 hover:bg-slate-800/60 text-slate-400 hover:text-red-400 text-xs font-bold py-2 rounded-xl border border-slate-800 hover:border-red-900/40 transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-400 text-xs font-bold py-2.5 rounded-xl border border-white/10 hover:border-red-500/20 transition-all cursor-pointer"
           >
             <LogOut size={14} />
             <span>Cerrar Sesión</span>
@@ -133,7 +133,7 @@ export const Layout: React.FC<LayoutProps> = ({
       <main className="flex-1 flex flex-col overflow-hidden">
         
         {/* HEADER BAR */}
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 shadow-sm">
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 flex items-center justify-between shrink-0 shadow-sm sticky top-0 z-30">
           <div className="flex items-center gap-4">
             <h2 className="text-sm font-bold bg-primary-light text-primary px-3.5 py-1 rounded-full border border-primary/10 transition-colors duration-300">
               {activeSchool}
@@ -157,8 +157,8 @@ export const Layout: React.FC<LayoutProps> = ({
         </header>
 
         {/* MODULE WORKSPACE */}
-        <section className="flex-1 overflow-y-auto p-8 relative">
-          <div className="max-w-6xl mx-auto h-full">
+        <section className="flex-1 overflow-y-auto p-6 md:p-8 relative">
+          <div className="max-w-7xl mx-auto w-full h-full">
             {children}
           </div>
         </section>

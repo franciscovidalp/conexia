@@ -54,6 +54,7 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
 
   // New Protocol Form Modal state
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [selectedNewGrade, setSelectedNewGrade] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
   const [newProtocolType, setNewProtocolType] = useState<'Bullying' | 'Violencia Escolar' | 'Vulneración de Derechos' | 'Drogas/Alcohol' | 'Ciberacoso' | 'Riesgo Suicida'>('Bullying');
   const [newDate, setNewDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -64,7 +65,8 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
   // 15 school/calendar days for due date
   const handleOpenNewModal = () => {
     setIsNewModalOpen(true);
-    setNewStudentId(students[0]?.id || '');
+    setSelectedNewGrade('');
+    setNewStudentId('');
     setNewReporter(`${loggedInUser.firstName} ${loggedInUser.lastName}`);
     setNewDescription('');
     setNewInitialMeasures('');
@@ -920,20 +922,50 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
 
             <form onSubmit={handleCreateProtocol} className="p-6 space-y-4">
               {/* Student search/select */}
-              <div>
-                <label className="block text-xs font-bold text-slate-550 mb-1">Estudiante Implicado / Afectado</label>
-                <select
-                  value={newStudentId}
-                  onChange={(e) => setNewStudentId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
-                  required
-                >
-                  <option value="" disabled>Seleccione estudiante...</option>
-                  {students.map(s => (
-                    <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.grade})</option>
-                  ))}
-                </select>
-              </div>
+              {(() => {
+                const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort();
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-550 mb-1">Curso del Estudiante</label>
+                      <select
+                        value={selectedNewGrade}
+                        onChange={(e) => {
+                          setSelectedNewGrade(e.target.value);
+                          const gradeStudents = students.filter(s => s.grade === e.target.value);
+                          setNewStudentId(gradeStudents[0]?.id || '');
+                        }}
+                        className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                        required
+                      >
+                        <option value="">Seleccione curso...</option>
+                        {uniqueGrades.map(g => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-550 mb-1">Estudiante Implicado / Afectado</label>
+                      <select
+                        value={newStudentId}
+                        onChange={(e) => setNewStudentId(e.target.value)}
+                        disabled={!selectedNewGrade}
+                        className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        required
+                      >
+                        <option value="" disabled>Seleccione estudiante...</option>
+                        {students
+                          .filter(s => s.grade === selectedNewGrade)
+                          .map(s => (
+                            <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })()}
+
 
               {/* Protocol type and incident date */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
