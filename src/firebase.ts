@@ -168,11 +168,47 @@ const saveLocalData = <T>(key: string, data: T[]) => {
 };
 
 export const dbService = {
+  // --- FIRESTORE SEEDER ---
+  async seedFirestoreData(): Promise<void> {
+    if (useMock) return;
+    try {
+      console.log("Seeding Firestore with initial demo data...");
+      
+      // Seed schools
+      for (const sch of INITIAL_SCHOOLS) {
+        await addDoc(collection(db, 'schools'), sch);
+      }
+      
+      // Seed staff
+      for (const st of MOCK_STAFF) {
+        await addDoc(collection(db, 'staff'), st);
+      }
+
+      // Seed students
+      for (const std of MOCK_STUDENTS) {
+        await addDoc(collection(db, 'students'), std);
+      }
+
+      // Seed coexistence cases
+      for (const cs of INITIAL_COEXISTENCE_CASES) {
+        await addDoc(collection(db, 'coexistence_cases'), cs);
+      }
+      
+      console.log("Firestore successfully seeded with schools, staff, students, and cases!");
+    } catch (err) {
+      console.error("Error during Firestore seeding:", err);
+    }
+  },
+
   // --- COLEGIO CRUD ---
   async getSchools(): Promise<School[]> {
     if (!useMock) {
       try {
-        const snap = await getDocs(collection(db, 'schools'));
+        let snap = await getDocs(collection(db, 'schools'));
+        if (snap.empty) {
+          await dbService.seedFirestoreData();
+          snap = await getDocs(collection(db, 'schools'));
+        }
         return snap.docs.map(d => ({ id: d.id, ...d.data() } as School));
       } catch (err) {
         console.error("Firestore error loading schools:", err);
