@@ -7,7 +7,9 @@ import {
   FileText, 
   AlertTriangle,
   Download,
-  Inbox
+  Inbox,
+  X,
+  Edit
 } from 'lucide-react';
 import { dbService } from '../firebase';
 import type { Student, Staff, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, RiskLevel, ContactType } from '../types';
@@ -18,12 +20,14 @@ interface PsychosocialModuleProps {
   activeSchool: SchoolType;
   students: Student[];
   staff: Staff[];
+  loggedInUser: Staff | null;
 }
 
 export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
   activeSchool,
   students,
-  staff
+  staff,
+  loggedInUser
 }) => {
   const [cases, setCases] = useState<PsychosocialCase[]>([]);
   const [selectedCase, setSelectedCase] = useState<PsychosocialCase | null>(null);
@@ -37,6 +41,15 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
   const [sessionNotes, setSessionNotes] = useState('');
   const [sessionAgreements, setSessionAgreements] = useState('');
   const [sessionProfessionalId, setSessionProfessionalId] = useState('');
+
+  const isAdmin = loggedInUser?.role === 'Administrador';
+  const isClinician = loggedInUser?.role === 'Psicólogo' || loggedInUser?.role === 'Trabajador Social' || loggedInUser?.role === 'Orientador';
+  const canEditOrDelete = isAdmin || isClinician;
+
+  // Modal Edit Case state
+  const [isEditCaseModalOpen, setIsEditCaseModalOpen] = useState(false);
+  const [editCaseRiskLevel, setEditCaseRiskLevel] = useState<RiskLevel>('Medio');
+  const [editCaseReason, setEditCaseReason] = useState('');
 
   // Load cases
   useEffect(() => {
@@ -189,6 +202,48 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
 
     exportPsychosocialReportPDF(selectedCase, student, sessions);
     toast.success('Expediente clínico exportado en PDF.');
+  };
+
+  const handleOpenEditCaseModal = (pc: PsychosocialCase) => {
+    setEditCaseRiskLevel(pc.riskLevel);
+    setEditCaseReason(pc.reason);
+    setIsEditCaseModalOpen(true);
+  };
+
+  const handleSubmitEditCase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCase) return;
+    if (!editCaseReason.trim()) {
+      toast.error('Debe ingresar un motivo del ingreso.');
+      return;
+    }
+
+    try {
+      const updates = {
+        riskLevel: editCaseRiskLevel,
+        reason: editCaseReason.trim()
+      };
+      await dbService.updatePsychosocialCase(selectedCase.id, updates);
+      setCases(prev => prev.map(c => c.id === selectedCase.id ? { ...c, ...updates } : c));
+      setSelectedCase(prev => prev ? { ...prev, ...updates } : null);
+      toast.success('Ficha psicosocial actualizada.');
+      setIsEditCaseModalOpen(false);
+    } catch (e) {
+      toast.error('Error al actualizar la ficha.');
+    }
+  };
+
+  const handleDeleteCase = async (caseId: string) => {
+    if (window.confirm('¿Está seguro de eliminar por completo este expediente psicosocial y todas sus sesiones? Esta acción no se puede deshacer.')) {
+      try {
+        await dbService.deletePsychosocialCase(caseId);
+        setCases(prev => prev.filter(c => c.id !== caseId));
+        setSelectedCase(null);
+        toast.success('Expediente psicosocial eliminado del sistema.');
+      } catch (e) {
+        toast.error('Error al eliminar expediente.');
+      }
+    }
   };
 
   const getRiskBadge = (level: RiskLevel) => {
@@ -368,6 +423,25 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
                   <Download size={14} />
                   <span>Descargar Expediente Clínico PDF</span>
                 </button>
+
+                {canEditOrDelete && (
+                  <div className="flex gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => handleOpenEditCaseModal(selectedCase)}
+                      className="flex-1 bg-primary hover:bg-primary-hover text-white text-xs font-bold py-2 rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-1"
+                    >
+                      <Edit size={13} />
+                      <span>Editar Ficha</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCase(selectedCase.id)}
+                      className="flex-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-650 text-xs font-bold py-2 rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-1"
+                    >
+                      <Trash2 size={13} />
+                      <span>Eliminar Expediente</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -551,6 +625,70 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
                 </button>
               </div>
 
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CASE MODAL */}
+      {isEditCaseModalOpen && selectedCase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in slide-in">
+            <div className="p-6 bg-slate-950 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm">Editar Ficha Psicosocial</h3>
+                <p className="text-[10px] text-slate-400">Modificando ficha de: <span className="text-primary font-semibold">{selectedCase.studentName}</span></p>
+              </div>
+              <button 
+                onClick={() => setIsEditCaseModalOpen(false)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitEditCase} className="p-6 space-y-4 text-xs font-semibold">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nivel de Riesgo</label>
+                <select
+                  value={editCaseRiskLevel}
+                  onChange={(e) => setEditCaseRiskLevel(e.target.value as RiskLevel)}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm cursor-pointer"
+                  required
+                >
+                  <option value="Bajo">Bajo</option>
+                  <option value="Medio">Medio</option>
+                  <option value="Alto">Alto</option>
+                  <option value="Crítico">Crítico</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Motivo del Ingreso / Descripción</label>
+                <textarea
+                  value={editCaseReason}
+                  onChange={(e) => setEditCaseReason(e.target.value)}
+                  placeholder="Detalle el motivo del ingreso o diagnóstico preliminar..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-36 font-sans font-medium"
+                  required
+                ></textarea>
+              </div>
+
+              <div className="flex items-center justify-end border-t border-slate-200 pt-4 mt-6 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditCaseModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primary hover:bg-primary-hover text-white font-bold text-xs px-4 py-2 rounded-xl shadow cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
             </form>
           </div>
         </div>

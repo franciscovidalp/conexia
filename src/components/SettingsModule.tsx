@@ -170,11 +170,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   const handleDeleteSchool = async (id: string, name: string) => {
-    if (name === 'Colegio San Nicolás' || name === 'Colegio BioBío') {
-      toast.error('No se pueden eliminar los colegios base del sistema.');
-      return;
-    }
-    if (window.confirm(`¿Está seguro de eliminar el ${name}? Se borrarán todos sus alumnos asociados.`)) {
+    if (window.confirm(`¿Está seguro de eliminar el establecimiento ${name}? Se borrarán todos sus alumnos asociados.`)) {
       try {
         await dbService.deleteSchool(id);
         toast.success('Establecimiento eliminado.');
@@ -307,8 +303,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   const handleDeleteStaff = async (id: string, name: string) => {
-    if (name === 'Administrador General' || id === 'admin-1') {
-      toast.error('No se puede eliminar la cuenta del Administrador.');
+    if (loggedInUser && (id === loggedInUser.id || id === loggedInUser.rut || loggedInUser.email === id)) {
+      toast.error('No puedes eliminar tu propia cuenta de administrador activa.');
       return;
     }
     if (window.confirm(`¿Seguro que desea eliminar el acceso de ${name}?`)) {

@@ -26,6 +26,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
   const [showDemoList, setShowDemoList] = useState(false);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const loadStaff = async () => {
@@ -42,7 +43,10 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
   }, []);
 
   const handleAutofill = (selectedStaff: Staff) => {
-    if (selectedStaff.email === 'admin@colegiobiobiola.cl') {
+    if (
+      selectedStaff.email === 'admin@colegiobiobiola.cl' || 
+      selectedStaff.email === 'franciscojavier.vidal.p@gmail.com'
+    ) {
       setRut(selectedStaff.email);
       setPassword('04121988');
     } else {
@@ -56,7 +60,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
     setRut(e.target.value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!rut.trim()) {
@@ -68,47 +72,16 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
       return;
     }
 
-    const inputCleaned = rut.trim().toLowerCase();
-    const isEmailInput = inputCleaned.includes('@');
-    const cleanInputRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-
-    // Look for user
-    const matchedStaff = staffList.find(st => {
-      if (isEmailInput) {
-        return st.email.toLowerCase().trim() === inputCleaned;
-      } else {
-        const cleanStaffRut = st.rut.replace(/[^0-9kK]/g, '').toUpperCase();
-        return cleanStaffRut === cleanInputRut;
-      }
-    });
-
-    if (!matchedStaff) {
-      toast.error('El usuario ingresado no está registrado.');
-      return;
+    setSubmitting(true);
+    try {
+      const matchedStaff = await dbService.signIn(rut, password);
+      onLoginSuccess(matchedStaff.school, matchedStaff.role, matchedStaff);
+      toast.success(`Sesión iniciada: Bienvenido(a), ${matchedStaff.firstName} ${matchedStaff.lastName}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Error al iniciar sesión.');
+    } finally {
+      setSubmitting(false);
     }
-
-    // Secure password check
-    const normalizedPassword = password.trim();
-    let isPassValid = false;
-
-    // Admin account validation
-    const isAdminEmail = matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobiola.cl' || 
-                         matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobio.cl';
-
-    if (isAdminEmail) {
-      isPassValid = normalizedPassword === '04121988';
-    } else {
-      isPassValid = normalizedPassword === 'conexia123' || 
-                    normalizedPassword === matchedStaff.rut.replace(/[^0-9kK]/g, '');
-    }
-
-    if (!isPassValid) {
-      toast.error('Contraseña incorrecta.');
-      return;
-    }
-
-    onLoginSuccess(matchedStaff.school, matchedStaff.role, matchedStaff);
-    toast.success(`Sesión iniciada: Bienvenido(a), ${matchedStaff.firstName} ${matchedStaff.lastName}`);
   };
 
   if (loading) {
@@ -196,13 +169,13 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-550 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg transition-all focus:ring-2 focus:ring-indigo-500 cursor-pointer flex items-center justify-center gap-2 group"
+            disabled={submitting}
+            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-550 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg transition-all focus:ring-2 focus:ring-indigo-500 cursor-pointer flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>Iniciar Sesión</span>
-            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+            <span>{submitting ? 'Iniciando Sesión...' : 'Iniciar Sesión'}</span>
+            {!submitting && <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />}
           </button>
 
         </form>

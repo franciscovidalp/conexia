@@ -177,6 +177,7 @@ function App() {
             activeSchool={activeSchool}
             students={students}
             staff={staff}
+            loggedInUser={loggedInUser}
           />
         )}
 

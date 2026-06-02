@@ -13,6 +13,11 @@ import {
   orderBy,
   deleteDoc
 } from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  signOut as fbSignOut 
+} from 'firebase/auth';
 import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School } from './types';
 
 const firebaseConfig = {
@@ -26,11 +31,13 @@ const firebaseConfig = {
 
 let useMock = true;
 let db: any = null;
+let auth: any = null;
 
 if (import.meta.env.VITE_FIREBASE_API_KEY && import.meta.env.VITE_FIREBASE_API_KEY !== "mock-api-key") {
   try {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     db = getFirestore(app);
+    auth = getAuth(app);
     useMock = false;
     console.log("Firebase conectado.");
   } catch (error) {
@@ -69,7 +76,8 @@ const MOCK_STAFF: Staff[] = [
   { id: "13.111.459-2", rut: "13.111.459-2", firstName: "Alejandro", lastName: "Guzmán Ortíz", school: "Colegio BioBío", role: "Convivencia", email: "alejandro.guzman@biobio.cl" },
   { id: "15.223.902-1", rut: "15.223.902-1", firstName: "Camila", lastName: "Rojas Miranda", school: "Colegio BioBío", role: "Psicólogo", email: "camila.rojas@biobio.cl" },
   { id: "16.890.312-K", rut: "16.890.312-K", firstName: "Eduardo", lastName: "Salazar Garrido", school: "Colegio BioBío", role: "Trabajador Social", email: "eduardo.salazar@biobio.cl" },
-  { id: "admin-1", rut: "9.999.999-9", firstName: "Administrador", lastName: "General", school: "Colegio BioBío", role: "Administrador", email: "admin@colegiobiobiola.cl" }
+  { id: "admin-1", rut: "9.999.999-9", firstName: "Administrador", lastName: "General", school: "Colegio BioBío", role: "Administrador", email: "admin@colegiobiobiola.cl" },
+  { id: "admin-2", rut: "8.888.888-8", firstName: "Francisco Javier", lastName: "Vidal", school: "Colegio BioBío", role: "Administrador", email: "franciscojavier.vidal.p@gmail.com" }
 ];
 
 const INITIAL_COEXISTENCE_CASES: CoexistenceCase[] = [
@@ -744,6 +752,22 @@ export const dbService = {
     return newPC;
   },
 
+  async updatePsychosocialCase(id: string, updates: Partial<PsychosocialCase>): Promise<void> {
+    if (!useMock) {
+      try {
+        await updateDoc(doc(db, 'psychosocial_cases', id), updates);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const all = getLocalData<PsychosocialCase>('psychosocial_cases', INITIAL_PSYCHOSOCIAL_CASES);
+    const idx = all.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      all[idx] = { ...all[idx], ...updates };
+      saveLocalData('psychosocial_cases', all);
+    }
+  },
+
   async updatePsychosocialCaseStatus(id: string, status: PsychosocialStatus): Promise<void> {
     if (!useMock) {
       try {
@@ -860,5 +884,92 @@ export const dbService = {
     const all = getLocalData<ClinicalSession>('clinical_sessions', INITIAL_SESSIONS);
     const filtered = all.filter(s => s.id !== id);
     saveLocalData('clinical_sessions', filtered);
+  },
+
+  // --- AUTHENTICATION ---
+  async signIn(emailOrRut: string, checkPassword: string): Promise<Staff> {
+    const staffList = await dbService.getAllStaff();
+    
+    const inputCleaned = emailOrRut.trim().toLowerCase();
+    const isEmailInput = inputCleaned.includes('@');
+    const cleanInputRut = emailOrRut.replace(/[^0-9kK]/g, '').toUpperCase();
+
+    // Look for user
+    let matchedStaff = staffList.find(st => {
+      if (isEmailInput) {
+        return st.email.toLowerCase().trim() === inputCleaned;
+      } else {
+        const cleanStaffRut = st.rut.replace(/[^0-9kK]/g, '').toUpperCase();
+        return cleanStaffRut === cleanInputRut;
+      }
+    });
+
+    // Special admin registration fallback
+    if (!matchedStaff && inputCleaned === 'franciscojavier.vidal.p@gmail.com') {
+      matchedStaff = {
+        id: "admin-2",
+        rut: "8.888.888-8",
+        firstName: "Francisco Javier",
+        lastName: "Vidal",
+        school: "Colegio BioBío",
+        role: "Administrador",
+        email: "franciscojavier.vidal.p@gmail.com"
+      };
+      
+      const all = getLocalData<Staff>('staff', MOCK_STAFF);
+      all.push(matchedStaff);
+      saveLocalData('staff', all);
+      
+      if (!useMock) {
+        try {
+          await addDoc(collection(db, 'staff'), matchedStaff);
+        } catch (e) {
+          console.warn("Could not sync admin registration to Firestore:", e);
+        }
+      }
+    }
+
+    if (!matchedStaff) {
+      throw new Error('El usuario ingresado no está registrado en el sistema.');
+    }
+
+    if (!useMock && auth) {
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, matchedStaff.email, checkPassword);
+        console.log("Firebase Auth success for user:", userCredential.user.email);
+      } catch (err: any) {
+        console.warn("Firebase Auth failed, checking local credentials fallback:", err);
+        throw new Error(err.message || 'Contraseña incorrecta.');
+      }
+    } else {
+      const normalizedPassword = checkPassword.trim();
+      let isPassValid = false;
+
+      const isAdminEmail = matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobiola.cl' || 
+                           matchedStaff.email.toLowerCase().trim() === 'franciscojavier.vidal.p@gmail.com';
+
+      if (isAdminEmail) {
+        isPassValid = normalizedPassword === '04121988' || normalizedPassword === 'conexia123';
+      } else {
+        isPassValid = normalizedPassword === 'conexia123' || 
+                      normalizedPassword === matchedStaff.rut.replace(/[^0-9kK]/g, '');
+      }
+
+      if (!isPassValid) {
+        throw new Error('Contraseña incorrecta.');
+      }
+    }
+
+    return matchedStaff;
+  },
+
+  async signOut(): Promise<void> {
+    if (!useMock && auth) {
+      try {
+        await fbSignOut(auth);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   }
 };
