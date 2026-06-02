@@ -3,6 +3,7 @@ import {
   getFirestore, 
   collection, 
   getDocs, 
+  getDoc,
   updateDoc, 
   doc, 
   query, 
@@ -594,6 +595,34 @@ export const dbService = {
     }
   },
 
+  async recalculateStudentScore(studentId: string): Promise<number> {
+    let cases: CoexistenceCase[] = [];
+    if (!useMock) {
+      try {
+        const q = query(collection(db, 'coexistence_cases'), where('studentId', '==', studentId));
+        const snap = await getDocs(q);
+        cases = snap.docs.map(d => d.data() as CoexistenceCase);
+      } catch (err) {
+        console.error("Error fetching cases for score recalculation:", err);
+      }
+    } else {
+      const allCases = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
+      cases = allCases.filter(c => c.studentId === studentId);
+    }
+
+    let deltaSum = 0;
+    cases.forEach(c => {
+      if (c.type === 'Positiva') deltaSum += 5;
+      else if (c.type === 'Leve') deltaSum -= 5;
+      else if (c.type === 'Grave') deltaSum -= 15;
+      else if (c.type === 'Gravísima') deltaSum -= 25;
+    });
+
+    const finalScore = Math.max(0, Math.min(100, 100 + deltaSum));
+    await this.updateStudentScore(studentId, finalScore);
+    return finalScore;
+  },
+
   async createCoexistenceCase(c: Omit<CoexistenceCase, 'id' | 'createdAt'>): Promise<CoexistenceCase> {
     const newCase: CoexistenceCase = {
       ...c,
@@ -613,26 +642,32 @@ export const dbService = {
     all.push(newCase);
     saveLocalData('coexistence_cases', all);
 
-    // Adjust conduct score in DB
-    const students = getLocalData<Student>('students', MOCK_STUDENTS);
-    const index = students.findIndex(s => s.id === c.studentId);
-    if (index !== -1) {
-      let delta = 0;
-      if (c.type === 'Positiva') delta = 5;
-      else if (c.type === 'Leve') delta = -5;
-      else if (c.type === 'Grave') delta = -15;
-      else if (c.type === 'Gravísima') delta = -25;
-      
-      const currentScore = students[index].conductScore;
-      const newScore = Math.max(0, Math.min(100, currentScore + delta));
-      await this.updateStudentScore(c.studentId, newScore);
-    }
+    // Recalculate score in DB
+    await this.recalculateStudentScore(c.studentId);
 
     if (c.referredToPsychosocial) {
+      let studentGrade = 'N/A';
+      if (!useMock) {
+        try {
+          const studentSnap = await getDoc(doc(db, 'students', c.studentId));
+          if (studentSnap.exists()) {
+            studentGrade = studentSnap.data().grade || 'N/A';
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        const students = getLocalData<Student>('students', MOCK_STUDENTS);
+        const index = students.findIndex(s => s.id === c.studentId);
+        if (index !== -1) {
+          studentGrade = students[index].grade || 'N/A';
+        }
+      }
+
       await this.createPsychosocialCase({
         studentId: c.studentId,
         studentName: c.studentName,
-        grade: students[index]?.grade || 'N/A',
+        grade: studentGrade,
         school: c.school,
         status: 'Ingresado',
         referredDate: c.date,
@@ -645,85 +680,61 @@ export const dbService = {
   },
 
   async updateCoexistenceCase(id: string, updates: Partial<CoexistenceCase>): Promise<void> {
-    let oldCase: CoexistenceCase | undefined;
+    let studentId = '';
     
-    // Find old case
+    // Find in mock data
     const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
     const idx = all.findIndex(c => c.id === id);
     if (idx !== -1) {
-      oldCase = all[idx];
+      studentId = all[idx].studentId;
       all[idx] = { ...all[idx], ...updates };
       saveLocalData('coexistence_cases', all);
     }
 
     if (!useMock) {
       try {
+        const caseSnap = await getDoc(doc(db, 'coexistence_cases', id));
+        if (caseSnap.exists()) {
+          studentId = caseSnap.data().studentId;
+        }
         await updateDoc(doc(db, 'coexistence_cases', id), updates);
       } catch (e) {
         console.error(e);
       }
     }
 
-    // Adjust score if the type was updated
-    if (oldCase && updates.type && oldCase.type !== updates.type) {
-      let oldDelta = 0;
-      if (oldCase.type === 'Positiva') oldDelta = 5;
-      else if (oldCase.type === 'Leve') oldDelta = -5;
-      else if (oldCase.type === 'Grave') oldDelta = -15;
-      else if (oldCase.type === 'Gravísima') oldDelta = -25;
-
-      let newDelta = 0;
-      if (updates.type === 'Positiva') newDelta = 5;
-      else if (updates.type === 'Leve') newDelta = -5;
-      else if (updates.type === 'Grave') newDelta = -15;
-      else if (updates.type === 'Gravísima') newDelta = -25;
-
-      const difference = newDelta - oldDelta;
-
-      const students = getLocalData<Student>('students', MOCK_STUDENTS);
-      const sIdx = students.findIndex(s => s.id === oldCase!.studentId);
-      if (sIdx !== -1) {
-        const currentScore = students[sIdx].conductScore;
-        const newScore = Math.max(0, Math.min(100, currentScore + difference));
-        await this.updateStudentScore(oldCase.studentId, newScore);
-      }
+    // Recalculate score
+    if (studentId) {
+      await this.recalculateStudentScore(studentId);
     }
   },
 
   async deleteCoexistenceCase(id: string): Promise<void> {
-    let targetCase: CoexistenceCase | undefined;
+    let studentId = '';
     
     const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
     const idx = all.findIndex(c => c.id === id);
     if (idx !== -1) {
-      targetCase = all[idx];
+      studentId = all[idx].studentId;
       const filtered = all.filter(c => c.id !== id);
       saveLocalData('coexistence_cases', filtered);
     }
 
     if (!useMock) {
       try {
+        const caseSnap = await getDoc(doc(db, 'coexistence_cases', id));
+        if (caseSnap.exists()) {
+          studentId = caseSnap.data().studentId;
+        }
         await deleteDoc(doc(db, 'coexistence_cases', id));
       } catch (e) {
         console.error(e);
       }
     }
 
-    // Revert the score impact
-    if (targetCase) {
-      let delta = 0;
-      if (targetCase.type === 'Positiva') delta = -5;
-      else if (targetCase.type === 'Leve') delta = 5;
-      else if (targetCase.type === 'Grave') delta = 15;
-      else if (targetCase.type === 'Gravísima') delta = 25;
-
-      const students = getLocalData<Student>('students', MOCK_STUDENTS);
-      const sIdx = students.findIndex(s => s.id === targetCase!.studentId);
-      if (sIdx !== -1) {
-        const currentScore = students[sIdx].conductScore;
-        const newScore = Math.max(0, Math.min(100, currentScore + delta));
-        await this.updateStudentScore(targetCase.studentId, newScore);
-      }
+    // Recalculate score
+    if (studentId) {
+      await this.recalculateStudentScore(studentId);
     }
   },
 

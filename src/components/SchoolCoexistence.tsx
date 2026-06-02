@@ -42,6 +42,18 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  const calculateStudentScore = (studentId: string, baseScore: number = 100) => {
+    const sCases = coexistenceCases.filter(c => c.studentId === studentId);
+    let delta = 0;
+    sCases.forEach(c => {
+      if (c.type === 'Positiva') delta += 5;
+      else if (c.type === 'Leve') delta -= 5;
+      else if (c.type === 'Grave') delta -= 15;
+      else if (c.type === 'Gravísima') delta -= 25;
+    });
+    return Math.max(0, Math.min(100, baseScore + delta));
+  };
   
   // Case Paginated List State
   const [cases, setCases] = useState<CoexistenceCase[]>(coexistenceCases);
@@ -430,12 +442,12 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${
-                            (getStudentColor(student.id) || getSemaphoreBadge(student.conductScore)).bg
+                            (getStudentColor(student.id) || getSemaphoreBadge(calculateStudentScore(student.id))).bg
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${
-                              (getStudentColor(student.id) || getSemaphoreBadge(student.conductScore)).color
+                              (getStudentColor(student.id) || getSemaphoreBadge(calculateStudentScore(student.id))).color
                             }`}></span>
-                            {student.conductScore} pts
+                            {calculateStudentScore(student.id)} pts
                           </span>
                           <ChevronRight size={16} className="text-slate-400" />
                         </div>
@@ -479,16 +491,16 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                 <div className="sm:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
                   <div className="space-y-1">
                     <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Índice Convivencia RICE</h4>
-                    <p className="text-2xl font-black text-slate-800">{selectedStudent.conductScore} / 100</p>
+                    <p className="text-2xl font-black text-slate-800">{calculateStudentScore(selectedStudent.id)} / 100</p>
                     <p className="text-xs text-slate-500">Puntaje dinámico de conducta escolar.</p>
                   </div>
                   <div className="relative flex items-center justify-center">
                     <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-bold text-sm ${
-                      selectedStudent.conductScore >= 80 ? 'border-emerald-500 text-emerald-600' :
-                      selectedStudent.conductScore >= 60 ? 'border-amber-500 text-amber-600' :
+                      calculateStudentScore(selectedStudent.id) >= 80 ? 'border-emerald-500 text-emerald-600' :
+                      calculateStudentScore(selectedStudent.id) >= 60 ? 'border-amber-500 text-amber-600' :
                       'border-red-500 text-red-600'
                     }`}>
-                      {selectedStudent.conductScore}%
+                      {calculateStudentScore(selectedStudent.id)}%
                     </div>
                   </div>
                 </div>
@@ -496,12 +508,12 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
                   <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Estado Conducta</h4>
                   <div className="flex items-center gap-2 mt-2">
-                    {selectedStudent.conductScore >= 80 ? (
+                    {calculateStudentScore(selectedStudent.id) >= 80 ? (
                       <>
                         <TrendingUp className="text-emerald-500" size={24} />
                         <span className="text-sm font-bold text-emerald-700">Favorable</span>
                       </>
-                    ) : selectedStudent.conductScore >= 60 ? (
+                    ) : calculateStudentScore(selectedStudent.id) >= 60 ? (
                       <>
                         <AlertTriangle className="text-amber-500" size={24} />
                         <span className="text-sm font-bold text-amber-700">Observación</span>
