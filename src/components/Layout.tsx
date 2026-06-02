@@ -7,7 +7,8 @@ import {
   Building2,
   Database,
   Settings,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
 import type { SchoolType, UserRole, Staff, School } from '../types';
 
@@ -40,6 +41,8 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
+    { id: 'calendar', label: 'Calendario', icon: CalendarRange },
+    { id: 'messaging', label: 'Mensajería', icon: MessageSquare },
     { id: 'settings', label: 'Ajustes y Carga', icon: Settings }
   ];
 

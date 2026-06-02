@@ -3,6 +3,8 @@ import { Layout } from './components/Layout';
 import { SchoolCoexistence } from './components/SchoolCoexistence';
 import { SchoolActivities } from './components/SchoolActivities';
 import { PsychosocialModule } from './components/PsychosocialModule';
+import { CalendarModule } from './components/CalendarModule';
+import { MessagingModule } from './components/MessagingModule';
 import { SettingsModule, THEMES } from './components/SettingsModule';
 import type { ColorTheme } from './components/SettingsModule';
 import { LoginModule } from './components/LoginModule';
@@ -161,6 +163,21 @@ function App() {
             activeTheme={activeTheme}
             setActiveTheme={setActiveTheme}
             loggedInUser={loggedInUser}
+          />
+        )}
+
+        {activeTab === 'calendar' && (
+          <CalendarModule
+            activeSchool={activeSchool}
+            loggedInUser={loggedInUser}
+          />
+        )}
+
+        {activeTab === 'messaging' && (
+          <MessagingModule
+            activeSchool={activeSchool}
+            loggedInUser={loggedInUser}
+            staff={staff}
           />
         )}
       </Layout>

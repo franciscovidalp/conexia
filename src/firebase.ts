@@ -18,7 +18,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -826,6 +826,34 @@ export const dbService = {
     return all.filter(s => s.caseId === caseId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
 
+  async getAllClinicalSessionsForSchool(school: SchoolType): Promise<(ClinicalSession & { studentName?: string })[]> {
+    const cases = await dbService.getPsychosocialCases(school);
+    const caseIds = cases.map(c => c.id);
+    const caseMap = new Map(cases.map(c => [c.id, c.studentName]));
+
+    if (!useMock) {
+      try {
+        const snap = await getDocs(collection(db, 'clinical_sessions'));
+        const allSessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalSession));
+        const filtered = allSessions.filter(s => caseIds.includes(s.caseId));
+        return filtered.map(s => ({
+          ...s,
+          studentName: caseMap.get(s.caseId) || 'Estudiante'
+        })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      } catch (err) {
+        console.error("Error fetching all clinical sessions:", err);
+      }
+    }
+    const all = getLocalData<ClinicalSession>('clinical_sessions', INITIAL_SESSIONS);
+    return all
+      .filter(s => caseIds.includes(s.caseId))
+      .map(s => ({
+        ...s,
+        studentName: caseMap.get(s.caseId) || 'Estudiante'
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  },
+
   async createClinicalSession(sess: Omit<ClinicalSession, 'id' | 'createdAt'>): Promise<ClinicalSession> {
     const newSess: ClinicalSession = {
       ...sess,
@@ -872,6 +900,89 @@ export const dbService = {
     const all = getLocalData<ClinicalSession>('clinical_sessions', INITIAL_SESSIONS);
     const filtered = all.filter(s => s.id !== id);
     saveLocalData('clinical_sessions', filtered);
+  },
+
+  // --- MESSAGES ---
+  async getMessages(school: string): Promise<ChatMessage[]> {
+    if (!useMock) {
+      try {
+        const q = query(collection(db, 'messages'), where('school', '==', school));
+        const snap = await getDocs(q);
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage));
+        return results.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      }
+    }
+    const all = getLocalData<ChatMessage>('messages', []);
+    return all.filter(m => m.school === school).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  },
+
+  async sendMessage(msg: Omit<ChatMessage, 'id' | 'createdAt'>): Promise<ChatMessage> {
+    const newMsg: ChatMessage = {
+      ...msg,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: new Date().toISOString()
+    };
+    if (!useMock) {
+      try {
+        await setDoc(doc(db, 'messages', newMsg.id), newMsg);
+      } catch (err) {
+        console.error("Error sending message:", err);
+      }
+    }
+    const all = getLocalData<ChatMessage>('messages', []);
+    all.push(newMsg);
+    saveLocalData('messages', all);
+    return newMsg;
+  },
+
+  // --- MEETINGS ---
+  async getMeetings(school: string): Promise<Meeting[]> {
+    if (!useMock) {
+      try {
+        const q = query(collection(db, 'meetings'), where('school', '==', school));
+        const snap = await getDocs(q);
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() } as Meeting));
+        return results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      } catch (err) {
+        console.error("Error fetching meetings:", err);
+      }
+    }
+    const all = getLocalData<Meeting>('meetings', []);
+    return all.filter(m => m.school === school).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  },
+
+  async createMeeting(meeting: Omit<Meeting, 'id' | 'createdAt'>): Promise<Meeting> {
+    const newMeeting: Meeting = {
+      ...meeting,
+      id: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: new Date().toISOString()
+    };
+    if (!useMock) {
+      try {
+        await setDoc(doc(db, 'meetings', newMeeting.id), newMeeting);
+      } catch (err) {
+        console.error("Error creating meeting:", err);
+      }
+    }
+    const all = getLocalData<Meeting>('meetings', []);
+    all.push(newMeeting);
+    saveLocalData('meetings', all);
+    return newMeeting;
+  },
+
+  async deleteMeeting(id: string): Promise<void> {
+    if (!useMock) {
+      try {
+        await deleteDoc(doc(db, 'meetings', id));
+      } catch (err) {
+        console.error("Error deleting meeting:", err);
+      }
+    }
+    const all = getLocalData<Meeting>('meetings', []);
+    const filtered = all.filter(m => m.id !== id);
+    saveLocalData('meetings', filtered);
   },
 
   // --- AUTHENTICATION ---
@@ -990,6 +1101,8 @@ export const dbService = {
     localStorage.removeItem('conexia_activities');
     localStorage.removeItem('conexia_psychosocial_cases');
     localStorage.removeItem('conexia_clinical_sessions');
+    localStorage.removeItem('conexia_messages');
+    localStorage.removeItem('conexia_meetings');
 
     const defaultAdmin: Staff = {
       id: "admin-2",
@@ -1008,7 +1121,7 @@ export const dbService = {
     if (!useMock && db) {
       try {
         console.log("Limpiando colecciones de Firestore...");
-        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions'];
+        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings'];
         for (const colName of collections) {
           const snap = await getDocs(collection(db, colName));
           for (const d of snap.docs) {

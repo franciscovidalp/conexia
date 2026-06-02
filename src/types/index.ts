@@ -105,3 +105,26 @@ export interface ClinicalSession {
   professionalName: string; // cached join
   createdAt: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  school: SchoolType;
+  message: string;
+  createdAt: string;
+}
+
+export interface Meeting {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  type: 'Citación Apoderado' | 'Reunión Técnica' | 'Consejo de Profesores' | 'Otro';
+  description?: string;
+  school: SchoolType;
+  createdAt: string;
+}
+
