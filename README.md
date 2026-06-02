@@ -71,3 +71,7 @@ export default defineConfig([
   },
 ])
 ```
+
+## Despliegue
+CONEXIA está configurado para desplegarse automáticamente en Vercel tras cada push.
+
