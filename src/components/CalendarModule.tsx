@@ -13,7 +13,7 @@ import {
   Users
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { Meeting, SchoolType, Staff } from '../types';
+import type { Meeting, SchoolType, Staff, CoexistenceCase } from '../types';
 import toast from 'react-hot-toast';
 
 interface CalendarModuleProps {
@@ -26,7 +26,7 @@ interface CalendarEvent {
   title: string;
   date: string;
   time?: string;
-  type: 'workshop' | 'session' | 'meeting';
+  type: 'workshop' | 'session' | 'meeting' | 'case';
   color: string;
   category: string;
   description?: string;
@@ -70,6 +70,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       const sessions = await dbService.getAllClinicalSessionsForSchool(activeSchool);
       // Fetch meetings
       const meetings = await dbService.getMeetings(activeSchool);
+      // Fetch coexistence cases (anotaciones)
+      const casesObj = await dbService.getCoexistenceCases(activeSchool, 100);
+      const cases = casesObj?.data || [];
 
       const formattedEvents: CalendarEvent[] = [];
 
@@ -113,6 +116,19 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
           category: m.type,
           description: m.description
+        });
+      });
+
+      // Add coexistence cases (anotaciones)
+      cases.forEach((c: CoexistenceCase) => {
+        formattedEvents.push({
+          id: c.id,
+          title: `Anotación: ${c.studentName} (${c.type})`,
+          date: c.date,
+          type: 'case',
+          color: 'bg-rose-50 text-rose-700 border-rose-200',
+          category: `Anotación (${c.type})`,
+          description: `Estudiante: ${c.studentName}\nDetalle: ${c.description}\nReportado por: ${c.reporterName}\nEstado: ${c.status}`
         });
       });
 
@@ -323,7 +339,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                             ? 'bg-amber-500' 
                             : ev.type === 'session' 
                               ? 'bg-purple-500' 
-                              : 'bg-indigo-500'
+                              : ev.type === 'case'
+                                ? 'bg-rose-500'
+                                : 'bg-indigo-500'
                         }`}
                       />
                     ))}
@@ -351,6 +369,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           <span className="flex items-center gap-1.5 text-slate-600">
             <span className="w-3 h-3 rounded-full bg-indigo-500 border border-indigo-200"></span>
             Reunión / Citación
+          </span>
+          <span className="flex items-center gap-1.5 text-slate-600">
+            <span className="w-3 h-3 rounded-full bg-rose-500 border border-rose-200"></span>
+            Anotación de Convivencia
           </span>
         </div>
       </div>
@@ -429,23 +451,29 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         <div className="mt-6 pt-4 border-t border-slate-200">
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center">
             <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Resumen Mensual</h4>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-amber-50/50 p-2 rounded-lg text-center">
-                <span className="text-xs text-amber-700 font-semibold block">Talleres</span>
-                <span className="text-lg font-extrabold text-amber-800">
+            <div className="grid grid-cols-4 gap-1">
+              <div className="bg-amber-50/50 p-1.5 rounded-lg text-center">
+                <span className="text-[10px] text-amber-700 font-semibold block truncate">Talleres</span>
+                <span className="text-base font-extrabold text-amber-800">
                   {events.filter(e => e.type === 'workshop').length}
                 </span>
               </div>
-              <div className="bg-purple-50/50 p-2 rounded-lg text-center">
-                <span className="text-xs text-purple-700 font-semibold block">Clínicas</span>
-                <span className="text-lg font-extrabold text-purple-800">
+              <div className="bg-purple-50/50 p-1.5 rounded-lg text-center">
+                <span className="text-[10px] text-purple-700 font-semibold block truncate">Clínicas</span>
+                <span className="text-base font-extrabold text-purple-800">
                   {events.filter(e => e.type === 'session').length}
                 </span>
               </div>
-              <div className="bg-indigo-50/50 p-2 rounded-lg text-center">
-                <span className="text-xs text-indigo-700 font-semibold block">Reunión</span>
-                <span className="text-lg font-extrabold text-indigo-800">
+              <div className="bg-indigo-50/50 p-1.5 rounded-lg text-center">
+                <span className="text-[10px] text-indigo-700 font-semibold block truncate">Reuniones</span>
+                <span className="text-base font-extrabold text-indigo-800">
                   {events.filter(e => e.type === 'meeting').length}
+                </span>
+              </div>
+              <div className="bg-rose-50/50 p-1.5 rounded-lg text-center">
+                <span className="text-[10px] text-rose-700 font-semibold block truncate">Casos</span>
+                <span className="text-base font-extrabold text-rose-800">
+                  {events.filter(e => e.type === 'case').length}
                 </span>
               </div>
             </div>

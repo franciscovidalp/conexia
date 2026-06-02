@@ -563,6 +563,21 @@ export const dbService = {
     };
   },
 
+  async getAllCoexistenceCases(school: SchoolType): Promise<CoexistenceCase[]> {
+    if (!useMock) {
+      try {
+        const q = query(collection(db, 'coexistence_cases'), where('school', '==', school));
+        const snap = await getDocs(q);
+        const results = snap.docs.map(d => ({ id: d.id, ...d.data() } as CoexistenceCase));
+        return results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      } catch (err) {
+        console.error("Firestore error loading all cases:", err);
+      }
+    }
+    const all = getLocalData<CoexistenceCase>('coexistence_cases', INITIAL_COEXISTENCE_CASES);
+    return all.filter(c => c.school === school).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  },
+
   async createCoexistenceCase(c: Omit<CoexistenceCase, 'id' | 'createdAt'>): Promise<CoexistenceCase> {
     const newCase: CoexistenceCase = {
       ...c,

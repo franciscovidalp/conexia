@@ -94,7 +94,13 @@ function App() {
     setLoggedInUser(staffMember);
     setActiveSchool(schoolName);
     setActiveRole(role as UserRole);
-    setActiveTab('coexistence');
+    
+    // Land clinical roles directly on Dupla Psicosocial
+    if (role === 'Psicólogo' || role === 'Trabajador Social' || role === 'Orientador') {
+      setActiveTab('psychosocial');
+    } else {
+      setActiveTab('coexistence');
+    }
   };
 
   const handleLogout = () => {
