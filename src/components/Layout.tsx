@@ -8,7 +8,8 @@ import {
   Database,
   Settings,
   User,
-  MessageSquare
+  MessageSquare,
+  BarChart3
 } from 'lucide-react';
 import type { SchoolType, UserRole, Staff, School } from '../types';
 
@@ -41,6 +42,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
+    { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },
     { id: 'calendar', label: 'Calendario', icon: CalendarRange },
     { id: 'messaging', label: 'Mensajería', icon: MessageSquare },
     { id: 'settings', label: 'Ajustes y Carga', icon: Settings }

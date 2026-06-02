@@ -128,3 +128,31 @@ export interface Meeting {
   createdAt: string;
 }
 
+export interface Survey {
+  id: string;
+  title: string;
+  description: string;
+  target: 'Estudiantes' | 'Apoderados' | 'Docentes';
+  createdAt: string;
+}
+
+export interface SurveyQuestion {
+  id: string;
+  surveyId: string;
+  text: string;
+  category: 'Clima Social' | 'Autoestima' | 'Seguridad' | 'Apoyo Docente';
+}
+
+export interface SurveyAnswer {
+  id: string;
+  surveyId: string;
+  studentId: string;
+  studentName: string;
+  grade: string;
+  school: SchoolType;
+  responses: { [questionId: string]: number }; // 1 to 5 scale
+  score: number; // 0 to 100
+  riskStatus: 'Bajo' | 'Medio' | 'Alto' | 'Crítico';
+  submittedAt: string;
+}
+

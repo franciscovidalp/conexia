@@ -9,6 +9,7 @@ import { SettingsModule, THEMES } from './components/SettingsModule';
 import type { ColorTheme } from './components/SettingsModule';
 import { LoginModule } from './components/LoginModule';
 import { LandingPage } from './components/LandingPage';
+import { ClimateDiagnosisModule } from './components/ClimateDiagnosisModule';
 import { dbService } from './firebase';
 import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase } from './types';
 import { Toaster } from 'react-hot-toast';
@@ -183,6 +184,13 @@ function App() {
             loggedInUser={loggedInUser}
             psychosocialCases={psychosocialCases}
             onPsychosocialCasesChange={setPsychosocialCases}
+          />
+        )}
+
+        {activeTab === 'climate' && (
+          <ClimateDiagnosisModule
+            activeSchool={activeSchool}
+            students={students}
           />
         )}
 
