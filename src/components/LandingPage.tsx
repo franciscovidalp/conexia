@@ -16,7 +16,10 @@ import {
   Menu,
   X,
   FileSpreadsheet,
-  AlertTriangle
+  AlertTriangle,
+  ClipboardList,
+  Network,
+  BarChart3
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -47,6 +50,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
     {
       question: "¿Cómo se protege la privacidad de la información clínica y psicosocial?",
       answer: "La confidencialidad es nuestra máxima prioridad. Conexia implementa un control estricto de roles. La información de las Bitácoras Psicosociales individuales y familiares solo es visible para el equipo clínico (Psicólogo, Trabajador Social, Orientador) y está restringida para otros funcionarios del establecimiento. Además, toda la transmisión de datos está encriptada."
+    },
+    {
+      question: "¿El Plan de Gestión Anual y las Derivaciones Externas se vinculan con otros módulos?",
+      answer: "Sí, de manera nativa. El Plan de Gestión Anual de Convivencia Escolar permite enlazar los talleres y asambleas realizados en el módulo de Vínculo Escolar. Por otro lado, el módulo de Derivación Externa permite filtrar alumnos por su curso real y generar la Ficha Oficial de Derivación Intersectorial en PDF firmada digitalmente."
     },
     {
       question: "¿El Calendario Maestro requiere que ingresemos las actividades por duplicado?",
@@ -470,6 +477,45 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
                 <h4 className="text-lg font-bold text-white">Seguimiento de Semáforos</h4>
                 <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                   Filtro inteligente de cursos en color rojo que posean incidencias negativas, y marcado directo por alumnos en verde (positivo), naranja (leve) o rojo (faltas graves y gravísimas).
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 7: Diagnóstico Socioemocional DIA */}
+            <div className="bg-slate-950 border border-slate-850 p-6 rounded-2xl flex gap-4 hover:border-slate-800 hover:scale-[1.02] transition-all duration-300">
+              <div className="shrink-0 p-3 rounded-xl bg-violet-950/40 text-violet-400 w-12 h-12 flex items-center justify-center animate-zoom-in">
+                <BarChart3 size={24} />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-white">Diagnóstico Socioemocional (DIA)</h4>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  Cuestionarios del clima de aula alineados con DIA Mineduc. Comparte enlaces públicos con estudiantes/apoderados para obtener reportes cualitativos con alertas de riesgo clínico automático.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 8: Plan de Gestión Anual */}
+            <div className="bg-slate-950 border border-slate-850 p-6 rounded-2xl flex gap-4 hover:border-slate-800 hover:scale-[1.02] transition-all duration-300">
+              <div className="shrink-0 p-3 rounded-xl bg-emerald-950/40 text-emerald-400 w-12 h-12 flex items-center justify-center animate-zoom-in">
+                <ClipboardList size={24} />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-white">Plan de Gestión Anual</h4>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  Planificación de metas de convivencia por categorías Mineduc. Asocia talleres realizados y exporta reportes en PDF consolidados listos para la aprobación del Consejo Escolar.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 9: Derivación Intersectorial a Redes */}
+            <div className="bg-slate-950 border border-slate-850 p-6 rounded-2xl flex gap-4 hover:border-slate-800 hover:scale-[1.02] transition-all duration-300">
+              <div className="shrink-0 p-3 rounded-xl bg-indigo-950/40 text-indigo-400 w-12 h-12 flex items-center justify-center animate-zoom-in">
+                <Network size={24} />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-white">Derivación a Redes Externas</h4>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  Gestión oficial de derivaciones a OPD, CESFAM, OLN y Tribunales de Familia. Filtrado dinámico por curso, seguimiento de folios y estados, y descarga de la ficha intersectorial en PDF.
                 </p>
               </div>
             </div>
