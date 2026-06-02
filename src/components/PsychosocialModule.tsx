@@ -453,18 +453,27 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
             {/* RIGHT COMPONENT */}
             <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
               
-              <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-5 flex-wrap gap-3">
                 <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
                   <FileText size={18} className="text-primary" />
                   <span>Bitácora de Sesiones Clínicas</span>
                 </h3>
-                <button
-                  onClick={handleOpenSessionModal}
-                  className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
-                >
-                  <PlusCircle size={14} />
-                  <span>Registrar Sesión</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportClinicalPDF}
+                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
+                  >
+                    <Download size={14} />
+                    <span>Exportar PDF</span>
+                  </button>
+                  <button
+                    onClick={handleOpenSessionModal}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
+                  >
+                    <PlusCircle size={14} />
+                    <span>Registrar Sesión</span>
+                  </button>
+                </div>
               </div>
 
               {sessions.length === 0 ? (

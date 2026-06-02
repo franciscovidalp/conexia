@@ -332,17 +332,36 @@ export const exportPsychosocialReportPDF = (
     doc.setFontSize(10);
     doc.text('No se registran sesiones de intervención clínica aún en esta ficha.', 15, nextY2 + 8);
   } else {
+    const stripHtml = (html: string) => {
+      if (!html) return '';
+      return html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+    };
+
     autoTable(doc, {
       startY: nextY2 + 4,
-      head: [['Fecha', 'Tipo de Contacto', 'Profesional', 'Acuerdos / Compromisos']],
+      head: [['Fecha', 'Tipo', 'Profesional', 'Notas Clínicas', 'Compromisos / Acuerdos']],
       body: sessions.map(s => [
         s.date,
         s.contactType,
         s.professionalName,
-        s.agreements
+        stripHtml(s.notes),
+        s.agreements || 'Ninguno'
       ]),
       theme: 'grid',
       headStyles: { fillColor: [139, 92, 246] }, // violet-500
+      columnStyles: {
+        0: { cellWidth: 20 }, // Fecha
+        1: { cellWidth: 23 }, // Tipo
+        2: { cellWidth: 27 }, // Profesional
+        3: { cellWidth: 75 }, // Notas Clínicas
+        4: { cellWidth: 35 }  // Compromisos
+      },
+      styles: { fontSize: 8.5, overflow: 'linebreak' },
       margin: { left: 15, right: 15 }
     });
   }
