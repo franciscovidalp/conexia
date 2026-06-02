@@ -26,7 +26,7 @@ interface CalendarEvent {
   title: string;
   date: string;
   time?: string;
-  type: 'workshop' | 'session' | 'meeting' | 'case';
+  type: 'workshop' | 'session' | 'meeting' | 'case' | 'protocol';
   color: string;
   category: string;
   description?: string;
@@ -49,7 +49,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     workshop: true,
     session: true,
     meeting: true,
-    case: true
+    case: true,
+    protocol: true
   });
 
   // Modal State
@@ -79,6 +80,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       // Fetch coexistence cases (anotaciones)
       const casesObj = await dbService.getCoexistenceCases(activeSchool, 100);
       const cases = casesObj?.data || [];
+      // Fetch active RICE Protocols
+      const protocols = await dbService.getRiceProtocols(activeSchool);
 
       const formattedEvents: CalendarEvent[] = [];
 
@@ -136,6 +139,21 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           category: `Anotación (${c.type})`,
           description: `Estudiante: ${c.studentName}\nDetalle: ${c.description}\nReportado por: ${c.reporterName}\nEstado: ${c.status}`
         });
+      });
+
+      // Add active protocols
+      protocols.forEach((p) => {
+        if (p.status === 'Abierto') {
+          formattedEvents.push({
+            id: p.id,
+            title: `Protocolo Activo: ${p.studentName}`,
+            date: p.startedAt,
+            type: 'protocol',
+            color: 'bg-cyan-50 text-cyan-705 border-cyan-200',
+            category: `Protocolo RICE (${p.protocolType})`,
+            description: `Estudiante: ${p.studentName}\nTipo: ${p.protocolType}\nFecha de Inicio: ${p.startedAt}\nPlazo Límite RICE: ${p.dueDate}\nEstado: ${p.status}\n\nEtapas completadas: ${p.steps.filter(s => s.status === 'Completado').length} de ${p.steps.length}`
+          });
+        }
       });
 
       setEvents(formattedEvents);
@@ -310,6 +328,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           >
             <span className={`w-2 h-2 rounded-full ${filterTypes.case ? 'bg-rose-500' : 'bg-slate-300'}`}></span>
             <span>Casos Convivencia RICE</span>
+          </button>
+          <button
+            onClick={() => setFilterTypes(prev => ({ ...prev, protocol: !prev.protocol }))}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterTypes.protocol
+                ? 'bg-cyan-50 border-cyan-300 text-cyan-750 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-slate-655'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${filterTypes.protocol ? 'bg-cyan-500' : 'bg-slate-300'}`}></span>
+            <span>Protocolos RICE Activos</span>
           </button>
         </div>
 

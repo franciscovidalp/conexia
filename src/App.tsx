@@ -75,6 +75,7 @@ function App() {
 
   // Main loader for students, staff, and other collections to optimize Firestore reads
   const loadSchoolCache = async (school: SchoolType) => {
+    if (!loggedInUser) return;
     setCacheStatus('loading');
     try {
       const loadedStudents = await dbService.getStudents(school);
@@ -99,8 +100,10 @@ function App() {
   };
 
   useEffect(() => {
-    loadSchoolCache(activeSchool);
-  }, [activeSchool]);
+    if (loggedInUser) {
+      loadSchoolCache(activeSchool);
+    }
+  }, [activeSchool, loggedInUser]);
 
   const refreshStudentsState = async () => {
     const dbStudents = await dbService.getStudents(activeSchool);
