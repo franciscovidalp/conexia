@@ -19,7 +19,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -1188,6 +1188,45 @@ export const dbService = {
     }
   },
 
+  async createSurveyAnswer(ans: Omit<SurveyAnswer, 'id'>): Promise<SurveyAnswer> {
+    const newAns: SurveyAnswer = {
+      ...ans,
+      id: `ans-${Date.now()}`
+    };
+
+    if (!useMock) {
+      try {
+        await setDoc(doc(db, 'survey_answers', newAns.id), newAns);
+      } catch (err) {
+        console.error("Firestore save survey answer failed:", err);
+      }
+    }
+
+    const all = getLocalData<SurveyAnswer>('survey_answers', []);
+    all.push(newAns);
+    saveLocalData('survey_answers', all);
+    return newAns;
+  },
+
+  async getSurveyAnswers(surveyId: string, school: string, grade: string): Promise<SurveyAnswer[]> {
+    if (!useMock) {
+      try {
+        const q = query(
+          collection(db, 'survey_answers'),
+          where('surveyId', '==', surveyId),
+          where('school', '==', school),
+          where('grade', '==', grade)
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as SurveyAnswer));
+      } catch (err) {
+        console.error("Firestore error loading survey answers:", err);
+      }
+    }
+    const all = getLocalData<SurveyAnswer>('survey_answers', []);
+    return all.filter(a => a.surveyId === surveyId && a.school === school && a.grade === grade);
+  },
+
   async clearAllData(): Promise<void> {
     // Clear LocalStorage
     localStorage.removeItem('conexia_schools');
@@ -1217,7 +1256,7 @@ export const dbService = {
     if (!useMock && db) {
       try {
         console.log("Limpiando colecciones de Firestore...");
-        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings'];
+        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers'];
         for (const colName of collections) {
           const snap = await getDocs(collection(db, colName));
           for (const d of snap.docs) {

@@ -7,7 +7,8 @@ import {
   Brain,
   Zap,
   Building,
-  UserCheck
+  UserCheck,
+  Link
 } from 'lucide-react';
 import { dbService } from '../firebase';
 import type { Student, SchoolType, PsychosocialCase } from '../types';
@@ -93,25 +94,48 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   const selectedSurvey = SURVEY_TEMPLATES.find(s => s.id === selectedSurveyId) || SURVEY_TEMPLATES[0];
   const courses = Array.from(new Set(students.filter(s => s.school === activeSchool).map(s => s.grade))).sort();
 
+  const loadRealAnswers = async () => {
+    if (!selectedCourse) return;
+    try {
+      const realAnswers = await dbService.getSurveyAnswers(selectedSurveyId, activeSchool, selectedCourse);
+      if (realAnswers && realAnswers.length > 0) {
+        const mapped = realAnswers.map(ans => ({
+          studentId: ans.studentId,
+          studentName: ans.studentName,
+          answers: ans.responses,
+          score: ans.score,
+          riskStatus: ans.riskStatus,
+          submittedAt: ans.submittedAt
+        }));
+        setResponses(mapped);
+      } else {
+        // Fallback to local simulated cache
+        const key = `conexia_dia_resp_${activeSchool}_${selectedSurveyId}_${selectedCourse}`;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          setResponses(JSON.parse(saved));
+        } else {
+          setResponses([]);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading survey answers:", err);
+    }
+  };
+
   // Reset local state on school change
   useEffect(() => {
     setSelectedCourse('');
     setResponses([]);
   }, [activeSchool]);
 
-  // Load existing simulated responses from LocalStorage for this school/survey/course
+  // Load answers and referred status
   useEffect(() => {
     if (selectedCourse) {
-      const key = `conexia_dia_resp_${activeSchool}_${selectedSurveyId}_${selectedCourse}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        setResponses(JSON.parse(saved));
-      } else {
-        setResponses([]);
-      }
-      
-      // Load referred students from DB to check if already in Dupla Psicosocial
+      loadRealAnswers();
       checkReferredStatus();
+    } else {
+      setResponses([]);
     }
   }, [selectedCourse, selectedSurveyId, activeSchool]);
 
@@ -124,6 +148,16 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleCopyLink = () => {
+    if (!selectedCourse) {
+      toast.error('Por favor seleccione un curso primero.');
+      return;
+    }
+    const link = `${window.location.origin}/?surveyId=${selectedSurveyId}&school=${encodeURIComponent(activeSchool)}&grade=${encodeURIComponent(selectedCourse)}`;
+    navigator.clipboard.writeText(link);
+    toast.success('¡Enlace de encuesta copiado al portapapeles!');
   };
 
   const handleSimulateResponses = () => {
@@ -310,20 +344,29 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
           </select>
         </div>
 
-        {/* Simulator CTA */}
-        <div className="pt-5 md:pt-4">
+        {/* Actions Column */}
+        <div className="pt-5 md:pt-4 flex flex-col gap-2">
           {selectedCourse ? (
-            <button
-              onClick={handleSimulateResponses}
-              disabled={isSimulating}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-550 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <Zap size={14} className="animate-bounce" />
-              <span>{totalAnswers > 0 ? 'Re-simular Respuestas del Curso' : 'Simular Respuestas del Curso'}</span>
-            </button>
+            <>
+              <button
+                onClick={handleCopyLink}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs py-2 rounded-xl shadow-md transition-all cursor-pointer group animate-in fade-in zoom-in-95 duration-200"
+              >
+                <Link size={14} />
+                <span>Copiar Enlace de Encuesta</span>
+              </button>
+              <button
+                onClick={handleSimulateResponses}
+                disabled={isSimulating}
+                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2 rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                <Zap size={14} className={isSimulating ? "animate-spin" : ""} />
+                <span>Simular Datos de Prueba</span>
+              </button>
+            </>
           ) : (
-            <div className="text-center text-xs text-slate-400 font-semibold py-3 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
-              Seleccione un curso para activar simulación
+            <div className="text-center text-xs text-slate-400 font-semibold py-5 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
+              Seleccione un curso para ver opciones
             </div>
           )}
         </div>

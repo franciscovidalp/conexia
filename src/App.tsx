@@ -10,6 +10,7 @@ import type { ColorTheme } from './components/SettingsModule';
 import { LoginModule } from './components/LoginModule';
 import { LandingPage } from './components/LandingPage';
 import { ClimateDiagnosisModule } from './components/ClimateDiagnosisModule';
+import { PublicSurveyForm } from './components/PublicSurveyForm';
 import { dbService } from './firebase';
 import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase } from './types';
 import { Toaster } from 'react-hot-toast';
@@ -120,6 +121,25 @@ function App() {
     setLoggedInUser(null);
     toast.success('Sesión cerrada correctamente.');
   };
+
+  // Public survey link bypass (check parameters)
+  const urlParams = new URLSearchParams(window.location.search);
+  const surveyIdParam = urlParams.get('surveyId');
+  const schoolParam = urlParams.get('school');
+  const gradeParam = urlParams.get('grade');
+
+  if (surveyIdParam) {
+    return (
+      <>
+        <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
+        <PublicSurveyForm 
+          surveyId={surveyIdParam}
+          schoolName={schoolParam || ''}
+          gradeName={gradeParam || ''}
+        />
+      </>
+    );
+  }
 
   // If not logged in, render Landing Page with Login portal option
   if (!loggedInUser) {
