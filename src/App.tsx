@@ -8,6 +8,7 @@ import { MessagingModule } from './components/MessagingModule';
 import { SettingsModule, THEMES } from './components/SettingsModule';
 import type { ColorTheme } from './components/SettingsModule';
 import { LoginModule } from './components/LoginModule';
+import { LandingPage } from './components/LandingPage';
 import { dbService } from './firebase';
 import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase } from './types';
 import { Toaster } from 'react-hot-toast';
@@ -21,6 +22,7 @@ function App() {
 
   // Authenticated Staff state
   const [loggedInUser, setLoggedInUser] = useState<Staff | null>(null);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   // Cached collections (Zero-Read Architecture)
   const [students, setStudents] = useState<Student[]>([]);
@@ -118,12 +120,22 @@ function App() {
     toast.success('Sesión cerrada correctamente.');
   };
 
-  // If not logged in, render Login portal
+  // If not logged in, render Landing Page with Login portal option
   if (!loggedInUser) {
     return (
       <>
         <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
-        <LoginModule onLoginSuccess={handleLoginSuccess} />
+        {isLoginOpen ? (
+          <LoginModule 
+            onLoginSuccess={(schoolName, role, staffMember) => {
+              setIsLoginOpen(false);
+              handleLoginSuccess(schoolName, role, staffMember);
+            }} 
+            onClose={() => setIsLoginOpen(false)}
+          />
+        ) : (
+          <LandingPage onLoginClick={() => setIsLoginOpen(true)} />
+        )}
       </>
     );
   }

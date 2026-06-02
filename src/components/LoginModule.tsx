@@ -9,7 +9,8 @@ import {
   ChevronDown, 
   ChevronUp, 
   ArrowRight,
-  Info
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { dbService } from '../firebase';
 import type { Staff } from '../types';
@@ -17,9 +18,10 @@ import toast from 'react-hot-toast';
 
 interface LoginModuleProps {
   onLoginSuccess: (schoolName: string, role: string, staffMember: Staff) => void;
+  onClose?: () => void;
 }
 
-export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
+export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClose }) => {
   const [rut, setRut] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -101,6 +103,17 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess }) => {
       {/* Decorative glassmorphic gradient blobs */}
       <div className="absolute top-[-15%] left-[-15%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[130px]"></div>
       <div className="absolute bottom-[-15%] right-[-15%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[130px]"></div>
+
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-6 left-6 z-50 flex items-center gap-2 text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-4 py-2 rounded-xl text-xs font-semibold shadow-lg transition-all cursor-pointer backdrop-blur-md"
+        >
+          <ArrowLeft size={14} />
+          <span>Volver al inicio</span>
+        </button>
+      )}
 
       {/* Main Container */}
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10 space-y-6 flex flex-col justify-between">
