@@ -65,6 +65,10 @@ function App() {
 
   useEffect(() => {
     loadSchools();
+    // Purge any legacy simulated survey data from localStorage
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('conexia_dia_resp_'))
+      .forEach(k => localStorage.removeItem(k));
   }, []);
 
   // Main loader for students, staff, and other collections to optimize Firestore reads

@@ -5,7 +5,6 @@ import {
   AlertCircle, 
   ArrowRight,
   Brain,
-  Zap,
   Building,
   UserCheck,
   Link
@@ -88,7 +87,6 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   const [selectedSurveyId, setSelectedSurveyId] = useState(SURVEY_TEMPLATES[0].id);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [responses, setResponses] = useState<DIAResponse[]>([]);
-  const [isSimulating, setIsSimulating] = useState(false);
   const [referredStudentIds, setReferredStudentIds] = useState<string[]>([]);
 
   const selectedSurvey = SURVEY_TEMPLATES.find(s => s.id === selectedSurveyId) || SURVEY_TEMPLATES[0];
@@ -109,14 +107,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
         }));
         setResponses(mapped);
       } else {
-        // Fallback to local simulated cache
-        const key = `conexia_dia_resp_${activeSchool}_${selectedSurveyId}_${selectedCourse}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-          setResponses(JSON.parse(saved));
-        } else {
-          setResponses([]);
-        }
+        setResponses([]);
       }
     } catch (err) {
       console.error("Error loading survey answers:", err);
@@ -158,65 +149,6 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
     const link = `${window.location.origin}/?surveyId=${selectedSurveyId}&school=${encodeURIComponent(activeSchool)}&grade=${encodeURIComponent(selectedCourse)}`;
     navigator.clipboard.writeText(link);
     toast.success('¡Enlace de encuesta copiado al portapapeles!');
-  };
-
-  const handleSimulateResponses = () => {
-    if (!selectedCourse) {
-      toast.error('Por favor seleccione un curso primero.');
-      return;
-    }
-    setIsSimulating(true);
-
-    const courseStudents = students.filter(s => s.school === activeSchool && s.grade === selectedCourse);
-    if (courseStudents.length === 0) {
-      toast.error('No se encontraron estudiantes matriculados en este curso.');
-      setIsSimulating(false);
-      return;
-    }
-
-    // Generate random answers with specific biases to make it look realistic (some high risk, most healthy)
-    const simulated: DIAResponse[] = courseStudents.map((std, index) => {
-      const answers: { [questionId: string]: number } = {};
-      let total = 0;
-      
-      // Introduce 1-2 critical students on purpose to trigger alerts
-      const isCriticalStudent = index === 2 || index === 5;
-
-      selectedSurvey.questions.forEach(q => {
-        let val = 4; // default healthy answer (Agreed)
-        if (isCriticalStudent) {
-          // Low scores (1 or 2: Disagree / Strongly Disagree)
-          val = Math.random() > 0.4 ? 1 : 2;
-        } else {
-          // Random score between 3 and 5
-          const rand = Math.random();
-          val = rand > 0.85 ? 3 : rand > 0.4 ? 4 : 5;
-        }
-        answers[q.id] = val;
-        total += val;
-      });
-
-      const score = Number((total / selectedSurvey.questions.length).toFixed(1));
-      let riskStatus: DIAResponse['riskStatus'] = 'Bajo';
-      if (score < 2.5) riskStatus = 'Crítico';
-      else if (score < 3.2) riskStatus = 'Alto';
-      else if (score < 4.0) riskStatus = 'Medio';
-
-      return {
-        studentId: std.id,
-        studentName: `${std.firstName} ${std.lastName}`,
-        answers,
-        score,
-        riskStatus,
-        submittedAt: new Date(Date.now() - Math.random() * 86400000 * 3).toISOString().split('T')[0] // last 3 days
-      };
-    });
-
-    const key = `conexia_dia_resp_${activeSchool}_${selectedSurveyId}_${selectedCourse}`;
-    localStorage.setItem(key, JSON.stringify(simulated));
-    setResponses(simulated);
-    setIsSimulating(false);
-    toast.success(`Se simularon con éxito respuestas de ${simulated.length} estudiantes.`);
   };
 
   const handleDeriveToPsychosocial = async (resp: DIAResponse) => {
@@ -345,25 +277,15 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
         </div>
 
         {/* Actions Column */}
-        <div className="pt-5 md:pt-4 flex flex-col gap-2">
+        <div className="pt-5 md:pt-4">
           {selectedCourse ? (
-            <>
-              <button
-                onClick={handleCopyLink}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs py-2 rounded-xl shadow-md transition-all cursor-pointer group animate-in fade-in zoom-in-95 duration-200"
-              >
-                <Link size={14} />
-                <span>Copiar Enlace de Encuesta</span>
-              </button>
-              <button
-                onClick={handleSimulateResponses}
-                disabled={isSimulating}
-                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2 rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
-              >
-                <Zap size={14} className={isSimulating ? "animate-spin" : ""} />
-                <span>Simular Datos de Prueba</span>
-              </button>
-            </>
+            <button
+              onClick={handleCopyLink}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer group animate-in fade-in zoom-in-95 duration-200"
+            >
+              <Link size={14} />
+              <span>Copiar Enlace de Encuesta</span>
+            </button>
           ) : (
             <div className="text-center text-xs text-slate-400 font-semibold py-5 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
               Seleccione un curso para ver opciones
@@ -384,9 +306,9 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
       {totalAnswers === 0 ? (
         <div className="text-center py-20 bg-white border border-slate-200 border-dashed rounded-3xl p-6">
           <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-700">Sin Datos para Mostrar</h3>
+          <h3 className="text-lg font-bold text-slate-700">Sin Respuestas Aún</h3>
           <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-            Seleccione el curso escolar correspondiente y presione el botón **"Simular Respuestas del Curso"** para cargar de manera instantánea el análisis del clima socioemocional.
+            Seleccione el curso y comparta el enlace de la encuesta con los estudiantes. Las respuestas aparecerán aquí automáticamente una vez que los alumnos completen el cuestionario.
           </p>
         </div>
       ) : (
