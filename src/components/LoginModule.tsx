@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
-  Key, 
   Eye, 
   EyeOff, 
   Lock, 
   User, 
-  ChevronDown, 
-  ChevronUp, 
   ArrowRight,
-  Info,
   ArrowLeft
 } from 'lucide-react';
 import { dbService } from '../firebase';
@@ -25,40 +21,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClos
   const [rut, setRut] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemoList, setShowDemoList] = useState(false);
-  const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [loadingStaff, setLoadingStaff] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const handleToggleDemoList = async () => {
-    const nextShow = !showDemoList;
-    setShowDemoList(nextShow);
-    if (nextShow && staffList.length === 0 && !loadingStaff) {
-      setLoadingStaff(true);
-      try {
-        const list = await dbService.getAllStaff();
-        setStaffList(list);
-      } catch (e) {
-        toast.error('Error al cargar base de datos de personal.');
-      } finally {
-        setLoadingStaff(false);
-      }
-    }
-  };
-
-  const handleAutofill = (selectedStaff: Staff) => {
-    if (
-      selectedStaff.email === 'admin@colegiobiobiola.cl' || 
-      selectedStaff.email === 'franciscojavier.vidal.p@gmail.com'
-    ) {
-      setRut(selectedStaff.email);
-      setPassword('04121988');
-    } else {
-      setRut(selectedStaff.rut);
-      setPassword('conexia123');
-    }
-    toast.success(`Datos cargados para: ${selectedStaff.firstName}`);
-  };
 
   const handleRutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setRut(e.target.value);
@@ -185,62 +148,6 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClos
           </button>
 
         </form>
-
-        {/* Demo profiles disclosure */}
-        <div className="border-t border-slate-800 pt-4">
-          <button
-            type="button"
-            onClick={handleToggleDemoList}
-            className="w-full flex items-center justify-between text-xs text-slate-400 hover:text-slate-200 font-semibold cursor-pointer py-1"
-          >
-            <span className="flex items-center gap-1.5">
-              <Key size={14} className="text-indigo-400" />
-              <span>Credenciales de Demostración</span>
-            </span>
-            {showDemoList ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
- 
-          {showDemoList && (
-            <div className="mt-3 bg-slate-850/60 border border-slate-800 rounded-2xl p-3.5 max-h-56 overflow-y-auto space-y-3.5 divide-y divide-slate-800/50">
-              {loadingStaff ? (
-                <div className="text-center py-6 text-xs text-slate-400 flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-400"></div>
-                  <span>Cargando cuentas demo...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex gap-2 items-start text-[10px] text-slate-400 leading-normal pb-2">
-                    <Info size={14} className="text-indigo-400 shrink-0 mt-0.5" />
-                    <span>
-                      Haz clic en <span className="font-bold text-indigo-400">Autocompletar</span> en cualquiera de las cuentas de prueba. La contraseña de prueba general es <code className="bg-slate-900 text-slate-200 px-1 py-0.5 rounded font-mono font-bold">conexia123</code> (excepto la de Administrador, que usa <code className="bg-slate-900 text-slate-200 px-1 py-0.5 rounded font-mono font-bold">04121988</code>).
-                    </span>
-                  </div>
- 
-                  {staffList.map((st) => (
-                    <div key={st.rut} className="pt-3 first:pt-0 flex items-center justify-between gap-2 text-xs">
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-200 truncate">{st.firstName} {st.lastName}</p>
-                        <p className="text-[10px] text-slate-400 truncate">
-                          {st.role} • <span className="text-indigo-400/80">{st.school}</span>
-                        </p>
-                        <p className="text-[9px] font-mono text-slate-500 mt-0.5">
-                          {st.email === 'admin@colegiobiobiola.cl' || st.email === 'franciscojavier.vidal.p@gmail.com' ? `Email: ${st.email}` : `RUT: ${st.rut}`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleAutofill(st)}
-                        className="shrink-0 bg-indigo-600/10 hover:bg-indigo-650 hover:text-white text-indigo-400 px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                      >
-                        Autocompletar
-                      </button>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Footer info */}
         <div className="text-[9px] text-center text-slate-500 leading-normal border-t border-slate-800/40 pt-4">
