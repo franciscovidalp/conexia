@@ -165,34 +165,34 @@ export const Layout: React.FC<LayoutProps> = ({
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
       
       {/* SIDEBAR */}
-      <aside className="w-64 bg-gradient-to-b from-slate-950 to-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-2xl border-r border-slate-955">
+      <aside className="w-64 bg-white text-slate-650 flex flex-col justify-between shrink-0 shadow-xl border-r border-slate-200/80">
         <div>
           {/* Brand header */}
-          <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
-            <img src="/logo.png" alt="Conexia Logo" className="w-10 h-10 object-contain rounded-lg bg-white p-0.5" />
+          <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+            <img src="/logo.png" alt="Conexia Logo" className="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-200 shadow-xs" />
             <div>
-              <h1 className="font-bold text-white text-base leading-tight tracking-tight">CONEXIA</h1>
-              <p className="text-[10px] text-slate-500">Convivencia Escolar</p>
+              <h1 className="font-bold text-slate-805 text-base leading-tight tracking-tight">CONEXIA</h1>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Convivencia Escolar</p>
             </div>
           </div>
-
+ 
           {/* School Selector Card in Sidebar */}
-          <div className="p-4 mx-4 my-4 bg-white/5 rounded-xl border border-white/10">
-            <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              <Building2 size={14} className="text-primary" />
+          <div className="p-4 mx-4 my-4 bg-slate-50 rounded-xl border border-slate-200/60">
+            <div className="flex items-center gap-2 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <Building2 size={14} className="text-indigo-600" />
               <span>Establecimiento</span>
             </div>
             <select
               value={activeSchool}
               onChange={(e) => setActiveSchool(e.target.value)}
-              className="w-full bg-slate-900/60 text-white rounded-lg border border-white/10 px-2 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
+              className="w-full bg-white text-slate-700 rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer font-semibold"
             >
               {schools.map(s => (
                 <option key={s.id} value={s.name}>{s.name}</option>
               ))}
             </select>
           </div>
-
+ 
           {/* Navigation Items */}
           <nav className="px-4 space-y-1">
             {menuItems.map((item) => {
@@ -204,35 +204,35 @@ export const Layout: React.FC<LayoutProps> = ({
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 group relative ${
                     isActive 
-                      ? 'bg-white/10 text-white shadow-md border-l-4 border-primary backdrop-blur-md' 
-                      : 'hover:bg-white/5 hover:text-slate-200 text-slate-400'
+                      ? 'bg-indigo-50/70 text-indigo-750 shadow-xs border-l-4 border-indigo-650' 
+                      : 'hover:bg-slate-50 hover:text-slate-800 text-slate-500'
                   }`}
                 >
-                  <Icon size={18} className={`${isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-450'} transition-colors`} />
+                  <Icon size={18} className={`${isActive ? 'text-indigo-650' : 'text-slate-400 group-hover:text-slate-600'} transition-colors`} />
                   <span>{item.label}</span>
                 </button>
               );
             })}
           </nav>
         </div>
-
+ 
         {/* Sidebar Footer Logged-in Staff card */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/20 space-y-3">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/30 space-y-3">
           {loggedInUser && (
-            <div className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/10">
-              <div className="w-8 h-8 rounded-lg bg-primary-light/10 text-primary flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 p-2.5 bg-white border border-slate-200/80 rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                 <User size={16} />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">{loggedInUser.firstName} {loggedInUser.lastName}</p>
-                <p className="text-[10px] text-slate-500 truncate">{loggedInUser.role} (RICE)</p>
+                <p className="text-xs font-bold text-slate-800 truncate">{loggedInUser.firstName} {loggedInUser.lastName}</p>
+                <p className="text-[10px] text-slate-400 font-medium truncate">{loggedInUser.role}</p>
               </div>
             </div>
           )}
-
+ 
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-red-500/10 text-slate-400 hover:text-red-400 text-xs font-bold py-2.5 rounded-xl border border-white/10 hover:border-red-500/20 transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-bold py-2.5 rounded-xl border border-slate-200 hover:border-rose-250 transition-all cursor-pointer shadow-xs active:scale-97 animate-in fade-in"
           >
             <LogOut size={14} />
             <span>Cerrar Sesión</span>
@@ -283,32 +283,32 @@ export const Layout: React.FC<LayoutProps> = ({
         <section className="flex-1 overflow-y-auto p-6 md:p-8 relative">
           <div className="max-w-7xl mx-auto w-full h-full space-y-6">
             {isHelpOpen && currentHelp && (
-              <div className="bg-gradient-to-r from-slate-950 to-slate-900 text-white rounded-2xl p-5 shadow-lg border border-slate-800/80 animate-zoom-in relative overflow-hidden">
+              <div className="bg-white text-slate-800 rounded-2xl p-5 shadow-md border border-slate-200/80 animate-zoom-in relative overflow-hidden">
                 {/* Close Button */}
                 <button
                   onClick={() => setIsHelpOpen(false)}
-                  className="absolute top-4 right-4 text-slate-450 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors cursor-pointer"
                 >
                   <X size={16} />
                 </button>
 
                 {/* Decorative glow */}
-                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
+                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl"></div>
 
                 <div className="flex gap-4.5 items-start">
-                  <div className="p-3 bg-primary-light/10 text-primary rounded-xl shrink-0 mt-0.5 border border-primary/20">
-                    <HelpCircle size={22} className="text-primary" />
+                  <div className="p-3 bg-indigo-50 text-indigo-650 rounded-xl shrink-0 mt-0.5 border border-indigo-100">
+                    <HelpCircle size={22} />
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <h3 className="text-sm font-extrabold tracking-tight">Guía de Uso: {currentHelp.title}</h3>
-                      <p className="text-xs text-slate-350 mt-1 leading-relaxed">{currentHelp.desc}</p>
+                      <h3 className="text-sm font-black text-slate-800">Guía de Uso: {currentHelp.title}</h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{currentHelp.desc}</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-650 font-medium">
                       {currentHelp.steps.map((step, idx) => (
-                        <div key={idx} className="flex gap-2 items-start bg-white/5 p-2.5 rounded-xl border border-white/5">
-                          <span className="font-mono font-bold text-primary">{idx + 1}.</span>
+                        <div key={idx} className="flex gap-2 items-start bg-slate-50 p-2.5 rounded-xl border border-slate-200/40">
+                          <span className="font-mono font-bold text-indigo-600">{idx + 1}.</span>
                           <span className="leading-snug">{step}</span>
                         </div>
                       ))}

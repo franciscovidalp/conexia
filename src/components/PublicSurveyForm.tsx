@@ -32,9 +32,11 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
   schoolName,
   gradeName
 }) => {
+
+
   const [studentsList, setStudentsList] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [answers, setAnswers] = useState<{ [questionId: string]: number }>({});
+  const [answers, setAnswers] = useState<{ [questionId: string]: any }>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -56,11 +58,37 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
     fetchStudents();
   }, [schoolName, gradeName]);
 
-  const handleSelectAnswer = (questionId: string, value: number) => {
+  const handleSelectAnswer = (questionId: string, value: any) => {
     setAnswers(prev => ({
       ...prev,
       [questionId]: value
     }));
+  };
+
+  const handleSelectNomination = (questionId: string, index: number, value: string) => {
+    setAnswers(prev => {
+      const current = (prev[questionId] as string[]) || ['', '', ''];
+      const next = [...current];
+      next[index] = value;
+      return {
+        ...prev,
+        [questionId]: next
+      };
+    });
+  };
+
+  const getNominationOptions = (currentIndex: number, currentSelection: string[]) => {
+    return studentsList.filter(s => {
+      // Exclude self
+      if (s.id === selectedStudentId) return false;
+      // Exclude already selected choices at other indices
+      for (let i = 0; i < currentSelection.length; i++) {
+        if (i !== currentIndex && currentSelection[i] && currentSelection[i] === s.id) {
+          return false;
+        }
+      }
+      return true;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +100,17 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
     }
 
     // Verify all questions are answered
-    const unanswered = survey.questions.some(q => !answers[q.id]);
+    let unanswered = false;
+    if (survey.id === 'dia-sociograma') {
+      unanswered = survey.questions.some(q => {
+        const val = answers[q.id];
+        // At least the first nomination is mandatory
+        return !val || !val[0];
+      });
+    } else {
+      unanswered = survey.questions.some(q => !answers[q.id]);
+    }
+
     if (unanswered) {
       toast.error('Por favor, responde todas las preguntas del cuestionario.');
       return;
@@ -83,16 +121,27 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
       const student = studentsList.find(s => s.id === selectedStudentId);
       if (!student) throw new Error('Estudiante no encontrado.');
 
-      // Calculate score average
-      let sum = 0;
-      Object.values(answers).forEach(val => { sum += val; });
-      const score = Number((sum / survey.questions.length).toFixed(1));
-
-      // Calculate risk status
+      let formattedAnswers: { [key: string]: any } = {};
+      let score = 0;
       let riskStatus: SurveyAnswer['riskStatus'] = 'Bajo';
-      if (score < 2.5) riskStatus = 'Crítico';
-      else if (score < 3.2) riskStatus = 'Alto';
-      else if (score < 4.0) riskStatus = 'Medio';
+
+      if (survey.id === 'dia-sociograma') {
+        Object.keys(answers).forEach(qId => {
+          const list = (answers[qId] as string[]) || [];
+          formattedAnswers[qId] = list.filter(Boolean).join(',');
+        });
+      } else {
+        formattedAnswers = { ...answers };
+        // Calculate score average
+        let sum = 0;
+        Object.values(answers).forEach(val => { sum += Number(val); });
+        score = Number((sum / survey.questions.length).toFixed(1));
+
+        // Calculate risk status
+        if (score < 2.5) riskStatus = 'Crítico';
+        else if (score < 3.2) riskStatus = 'Alto';
+        else if (score < 4.0) riskStatus = 'Medio';
+      }
 
       const payload: Omit<SurveyAnswer, 'id'> = {
         surveyId: survey.id,
@@ -100,7 +149,7 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
         studentName: `${student.firstName} ${student.lastName}`,
         grade: gradeName,
         school: schoolName,
-        responses: answers,
+        responses: formattedAnswers,
         score,
         riskStatus,
         submittedAt: new Date().toISOString().split('T')[0]
@@ -252,51 +301,100 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
           {/* Likert Questionnaire */}
           {selectedStudentId && (
             <div className="space-y-6">
+
+
               <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 px-1">
                 <ClipboardList size={14} className="text-indigo-400" />
-                <span>2. Preguntas de Autoevaluación</span>
+                <span>{survey.id === 'dia-sociograma' ? '2. Cuestionario de Sociometría y Relaciones' : '2. Preguntas de Autoevaluación'}</span>
               </h3>
 
               <div className="space-y-5">
-                {survey.questions.map((q, idx) => (
-                  <div 
-                    key={q.id} 
-                    className="bg-slate-850/40 border border-slate-800 p-5 rounded-2xl space-y-4 hover:border-slate-700 transition-colors"
-                  >
-                    <div className="flex gap-2.5 items-start">
-                      <span className="w-5 h-5 rounded-full bg-indigo-950/80 border border-indigo-900 flex items-center justify-center font-mono font-bold text-[10px] text-indigo-400 shrink-0 mt-0.5">
-                        {idx + 1}
-                      </span>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-200 leading-relaxed">{q.text}</p>
-                    </div>
+                {survey.questions.map((q, idx) => {
+                  if (survey.id === 'dia-sociograma') {
+                    const currentSelection = (answers[q.id] as string[]) || ['', '', ''];
+                    return (
+                      <div 
+                        key={q.id} 
+                        className="bg-slate-850/40 border border-slate-800 p-5 rounded-2xl space-y-4 hover:border-slate-700 transition-colors animate-in fade-in slide-in"
+                      >
+                        <div className="flex gap-2.5 items-start">
+                          <span className="w-5 h-5 rounded-full bg-indigo-950/80 border border-indigo-900 flex items-center justify-center font-mono font-bold text-[10px] text-indigo-400 shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <p className="text-xs sm:text-sm font-semibold text-slate-200 leading-relaxed">{q.text}</p>
+                        </div>
 
-                    {/* Emoji Rating Bar */}
-                    <div className="grid grid-cols-5 gap-2 pt-2">
-                      {EMOJIS.map(emoji => {
-                        const isSelected = answers[q.id] === emoji.value;
-                        return (
-                          <button
-                            key={emoji.value}
-                            type="button"
-                            onClick={() => handleSelectAnswer(q.id, emoji.value)}
-                            className={`flex flex-col items-center p-2.5 rounded-xl border transition-all text-center gap-1.5 cursor-pointer ${
-                              isSelected 
-                                ? 'bg-indigo-600/20 border-indigo-500 scale-[1.04] shadow shadow-indigo-500/10' 
-                                : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-                            }`}
-                          >
-                            <span className="text-2xl sm:text-3xl filter drop-shadow">{emoji.char}</span>
-                            <span className={`text-[8px] sm:text-[9px] font-bold block ${
-                              isSelected ? 'text-indigo-400 font-extrabold' : 'text-slate-500'
-                            }`}>
-                              {emoji.label}
-                            </span>
-                          </button>
-                        );
-                      })}
+                        {/* Nominations selection controls */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-2">
+                          {[0, 1, 2].map(nomIdx => {
+                            const availableClassmates = getNominationOptions(nomIdx, currentSelection);
+                            const label = nomIdx === 0 ? '1ª Opción (Obligatorio)' : nomIdx === 1 ? '2ª Opción (Opcional)' : '3ª Opción (Opcional)';
+                            return (
+                              <div key={nomIdx} className="space-y-1">
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                                  {label}
+                                </label>
+                                <select
+                                  value={currentSelection[nomIdx] || ''}
+                                  onChange={(e) => handleSelectNomination(q.id, nomIdx, e.target.value)}
+                                  className="w-full bg-slate-900 text-white rounded-lg border border-slate-750 p-2 text-xs focus:border-indigo-500 font-semibold"
+                                >
+                                  <option value="">-- Seleccionar --</option>
+                                  {availableClassmates.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.firstName} {c.lastName}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Else: normal Likert emoji bar
+                  return (
+                    <div 
+                      key={q.id} 
+                      className="bg-slate-850/40 border border-slate-800 p-5 rounded-2xl space-y-4 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="flex gap-2.5 items-start">
+                        <span className="w-5 h-5 rounded-full bg-indigo-950/80 border border-indigo-900 flex items-center justify-center font-mono font-bold text-[10px] text-indigo-400 shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <p className="text-xs sm:text-sm font-semibold text-slate-200 leading-relaxed">{q.text}</p>
+                      </div>
+
+                      {/* Emoji Rating Bar */}
+                      <div className="grid grid-cols-5 gap-2 pt-2">
+                        {EMOJIS.map(emoji => {
+                          const isSelected = answers[q.id] === emoji.value;
+                          return (
+                            <button
+                              key={emoji.value}
+                              type="button"
+                              onClick={() => handleSelectAnswer(q.id, emoji.value)}
+                              className={`flex flex-col items-center p-2.5 rounded-xl border transition-all text-center gap-1.5 cursor-pointer ${
+                                isSelected 
+                                  ? 'bg-indigo-600/20 border-indigo-500 scale-[1.04] shadow shadow-indigo-500/10' 
+                                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              <span className="text-2xl sm:text-3xl filter drop-shadow">{emoji.char}</span>
+                              <span className={`text-[8px] sm:text-[9px] font-bold block ${
+                                isSelected ? 'text-indigo-400 font-extrabold' : 'text-slate-500'
+                              }`}>
+                                {emoji.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Submit Button */}

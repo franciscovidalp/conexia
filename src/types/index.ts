@@ -150,7 +150,7 @@ export interface SurveyAnswer {
   studentName: string;
   grade: string;
   school: SchoolType;
-  responses: { [questionId: string]: number }; // 1 to 5 scale
+  responses: { [questionId: string]: any }; // 1 to 5 scale or peer names for sociogram
   score: number; // 0 to 100
   riskStatus: 'Bajo' | 'Medio' | 'Alto' | 'Crítico';
   submittedAt: string;

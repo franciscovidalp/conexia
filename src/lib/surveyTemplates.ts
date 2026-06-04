@@ -84,5 +84,19 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
       { id: 'q9', text: 'Mi apoderado sabe claramente a quién contactar en el colegio cuando tiene una duda o reclamo.', category: 'Seguridad' },
       { id: 'q10', text: 'Siento que el colegio respeta y valora la opinión de mi apoderado y familia.', category: 'Clima Social' }
     ]
+  },
+  {
+    id: 'dia-sociograma',
+    title: 'Diagnóstico DIA: Sociograma y Relaciones del Curso',
+    description: 'Establece el mapa de relaciones socioafectivas del aula, identificando líderes, alumnos integrados, aislados y dinámicas de aceptación o rechazo escolar.',
+    target: 'Estudiantes',
+    questions: [
+      { id: 'q1', text: '¿Con qué compañeros de tu curso te gustaría trabajar en proyectos escolares o tareas de clase?', category: 'Clima Social' },
+      { id: 'q2', text: '¿Con qué compañeros de tu curso preferirías NO trabajar en proyectos escolares o tareas de clase?', category: 'Clima Social' },
+      { id: 'q3', text: '¿Con qué compañeros de tu curso te gusta compartir en los recreos, jugar o realizar actividades libres?', category: 'Clima Social' },
+      { id: 'q4', text: '¿Con qué compañeros de tu curso preferirías NO compartir en los recreos o jugar?', category: 'Clima Social' },
+      { id: 'q5', text: '¿A quién(es) consideras como líder(es) o referente(s) positivo(s) en el curso (a quien todos escuchan)?', category: 'Clima Social' },
+      { id: 'q6', text: '¿Quién(es) crees que se siente(n) más solo(s) o aislado(s) en el curso en el día a día?', category: 'Clima Social' }
+    ]
   }
 ];
