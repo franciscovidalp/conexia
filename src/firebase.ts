@@ -8,9 +8,6 @@ import {
   doc, 
   query, 
   where, 
-  limit, 
-  startAfter, 
-  orderBy,
   deleteDoc,
   setDoc
 } from 'firebase/firestore';
@@ -644,38 +641,26 @@ export const dbService = {
   ): Promise<{ data: CoexistenceCase[]; lastDoc: any; hasMore: boolean }> {
     if (!useMock) {
       try {
-        let q = query(
+        const q = query(
           collection(db, 'coexistence_cases'),
-          where('school', '==', school),
-          orderBy('createdAt', 'desc'),
-          limit(limitCount)
+          where('school', '==', school)
         );
-        if (lastDocSnap) {
-          q = query(
-            collection(db, 'coexistence_cases'),
-            where('school', '==', school),
-            orderBy('createdAt', 'desc'),
-            startAfter(lastDocSnap),
-            limit(limitCount)
-          );
-        }
         const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as CoexistenceCase));
-        const lastSnapshot = snap.docs[snap.docs.length - 1];
+        const allCases = snap.docs.map(d => ({ id: d.id, ...d.data() } as CoexistenceCase));
         
-        let hasMore = false;
-        if (lastSnapshot) {
-          let checkQ = query(
-            collection(db, 'coexistence_cases'),
-            where('school', '==', school),
-            orderBy('createdAt', 'desc'),
-            startAfter(lastSnapshot),
-            limit(1)
-          );
-          const checkSnap = await getDocs(checkQ);
-          hasMore = !checkSnap.empty;
-        }
-        return { data, lastDoc: lastSnapshot, hasMore };
+        // Sort in memory by createdAt descending
+        allCases.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+        
+        const startIndex = lastDocSnap ? (lastDocSnap as number) : 0;
+        const paginated = allCases.slice(startIndex, startIndex + limitCount);
+        const nextIndex = startIndex + limitCount;
+        const hasMore = nextIndex < allCases.length;
+
+        return { 
+          data: paginated, 
+          lastDoc: hasMore ? nextIndex : null, 
+          hasMore 
+        };
       } catch (err) {
         console.error("Firestore error loading cases:", err);
       }
@@ -875,9 +860,10 @@ export const dbService = {
   async getActivities(school: SchoolType): Promise<Activity[]> {
     if (!useMock) {
       try {
-        const q = query(collection(db, 'activities'), where('school', '==', school), orderBy('date', 'desc'));
+        const q = query(collection(db, 'activities'), where('school', '==', school));
         const snap = await getDocs(q);
-        return snap.docs.map(d => ({ id: d.id, ...d.data() } as Activity));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Activity));
+        return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       } catch (err) {
         console.error("Firestore error loading activities:", err);
       }
@@ -1044,9 +1030,10 @@ export const dbService = {
   async getClinicalSessions(caseId: string): Promise<ClinicalSession[]> {
     if (!useMock) {
       try {
-        const q = query(collection(db, 'clinical_sessions'), where('caseId', '==', caseId), orderBy('date', 'desc'));
+        const q = query(collection(db, 'clinical_sessions'), where('caseId', '==', caseId));
         const snap = await getDocs(q);
-        return snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalSession));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalSession));
+        return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       } catch (err) {
         console.error(err);
       }
