@@ -44,13 +44,18 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [activeTab, setActiveTab] = useState<'themes' | 'schools' | 'students' | 'staff'>('themes');
 
   const isAdmin = loggedInUser?.role === 'Administrador';
+  const isDirectivo = loggedInUser?.role === 'Directivo';
+  const canManageStaff = isAdmin || isDirectivo;
 
-  // Redirect non-admins if they try to access admin tabs
+  // Redirect non-admins/non-directivos if they try to access admin tabs
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'schools' || activeTab === 'staff')) {
+    if (!canManageStaff && activeTab === 'staff') {
       setActiveTab('themes');
     }
-  }, [isAdmin, activeTab]);
+    if (!isAdmin && activeTab === 'schools') {
+      setActiveTab('themes');
+    }
+  }, [isAdmin, canManageStaff, activeTab]);
 
   // School Form State
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
@@ -465,28 +470,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         </button>
 
         {isAdmin && (
-          <>
-            <button
-              onClick={() => setActiveTab('schools')}
-              className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
-                activeTab === 'schools' 
-                  ? 'text-primary border-b-2 border-primary font-bold' 
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              3. Colegios (Establecimientos)
-            </button>
-            <button
-              onClick={() => setActiveTab('staff')}
-              className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
-                activeTab === 'staff' 
-                  ? 'text-primary border-b-2 border-primary font-bold' 
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              4. Control de Usuarios (Personal)
-            </button>
-          </>
+          <button
+            onClick={() => setActiveTab('schools')}
+            className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
+              activeTab === 'schools' 
+                ? 'text-primary border-b-2 border-primary font-bold' 
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            3. Colegios (Establecimientos)
+          </button>
+        )}
+        {(isAdmin || isDirectivo) && (
+          <button
+            onClick={() => setActiveTab('staff')}
+            className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
+              activeTab === 'staff' 
+                ? 'text-primary border-b-2 border-primary font-bold' 
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            4. Control de Usuarios (Personal)
+          </button>
         )}
       </div>
 
@@ -777,7 +782,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       {/* ---------------------------------------------------- */}
       {/* TAB 4: STAFF LIST CRUD (Admin Only) */}
       {/* ---------------------------------------------------- */}
-      {activeTab === 'staff' && isAdmin && (
+      {activeTab === 'staff' && (isAdmin || isDirectivo) && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6 animate-in fade-in">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
@@ -1082,6 +1087,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <option value="Trabajador Social">Asistente/Trabajador Social</option>
                     <option value="Orientador">Orientador(a)</option>
                     <option value="Docente">Docente / Profesor</option>
+                    <option value="Directivo">Directivo (Director / Inspector Gral.)</option>
                     <option value="Administrador">Administrador</option>
                   </select>
                 </div>
@@ -1090,7 +1096,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <select
                     value={staffSchool}
                     onChange={(e) => setStaffSchool(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 p-2.5 text-sm cursor-pointer"
+                    disabled={!isAdmin}
+                    className={`w-full rounded-xl border border-slate-300 p-2.5 text-sm ${
+                      !isAdmin ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'cursor-pointer'
+                    }`}
                   >
                     {schools.map(s => (
                       <option key={s.id} value={s.name}>{s.name}</option>

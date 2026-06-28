@@ -818,12 +818,19 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                             <circle
                               cx={x}
                               cy={y}
+                              r={26}
+                              fill="transparent"
+                              className="cursor-pointer"
+                            />
+                            <circle
+                              cx={x}
+                              cy={y}
                               r={nodeRadius}
                               fill={fill}
                               stroke={stroke}
                               strokeWidth={strokeWidth}
                               strokeDasharray={isIsolated ? '3,3' : undefined}
-                              className="filter drop-shadow-sm hover:scale-110 transition-transform duration-200"
+                              className="filter drop-shadow-sm transition-all duration-150"
                             />
                             <text
                               x={x}

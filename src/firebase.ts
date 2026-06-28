@@ -16,7 +16,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, RiceProtocol, ManagementObjective, ExternalReferral } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -70,7 +70,7 @@ const MOCK_STAFF: Staff[] = [
   { id: "14.230.119-K", rut: "14.230.119-K", firstName: "María Paz", lastName: "Toledo Bascuñán", school: "Colegio San Nicolás", role: "Psicólogo", email: "mariapaz.toledo@sannicolas.cl" },
   { id: "15.918.239-1", rut: "15.918.239-1", firstName: "Juan Pablo", lastName: "Silva Oyarzún", school: "Colegio San Nicolás", role: "Trabajador Social", email: "juan.silva@sannicolas.cl" },
   { id: "16.441.229-3", rut: "16.441.229-3", firstName: "Patricia", lastName: "Venegas Soto", school: "Colegio San Nicolás", role: "Docente", email: "patricia.venegas@sannicolas.cl" },
-  { id: "10.992.812-4", rut: "10.992.812-4", firstName: "Sofía", lastName: "Castro Ruiz", school: "Colegio San Nicolás", role: "Director", email: "sofia.castro@sannicolas.cl" },
+  { id: "10.992.812-4", rut: "10.992.812-4", firstName: "Sofía", lastName: "Castro Ruiz", school: "Colegio San Nicolás", role: "Directivo", email: "sofia.castro@sannicolas.cl" },
   { id: "13.111.459-2", rut: "13.111.459-2", firstName: "Alejandro", lastName: "Guzmán Ortíz", school: "Colegio BioBío", role: "Convivencia", email: "alejandro.guzman@biobio.cl" },
   { id: "15.223.902-1", rut: "15.223.902-1", firstName: "Camila", lastName: "Rojas Miranda", school: "Colegio BioBío", role: "Psicólogo", email: "camila.rojas@biobio.cl" },
   { id: "16.890.312-K", rut: "16.890.312-K", firstName: "Eduardo", lastName: "Salazar Garrido", school: "Colegio BioBío", role: "Trabajador Social", email: "eduardo.salazar@biobio.cl" },
@@ -1331,6 +1331,19 @@ export const dbService = {
       try {
         const userCredential = await signInWithEmailAndPassword(auth, matchedStaff.email, checkPassword);
         console.log("Firebase Auth success for user:", userCredential.user.email);
+        
+        // Write the users/{uid} mapping document to Firestore for security rules lookup
+        const uid = userCredential.user.uid;
+        try {
+          await setDoc(doc(db, 'users', uid), {
+            rut: matchedStaff.rut,
+            email: matchedStaff.email,
+            role: matchedStaff.role,
+            school: matchedStaff.school
+          });
+        } catch (e) {
+          console.warn("Failed to write users mapping document for firestore security rules:", e);
+        }
       } catch (err: any) {
         console.warn("Firebase Auth failed, checking local credentials fallback:", err);
         throw new Error(err.message || 'Contraseña incorrecta.');
@@ -1534,6 +1547,69 @@ export const dbService = {
     saveLocalData('referrals', filtered);
   },
 
+  // --- PARENT SUMMONS ---
+  async getParentSummons(school: SchoolType): Promise<ParentSummons[]> {
+    if (!useMock && db) {
+      try {
+        const q = query(collection(db, 'parent_summons'), where('school', '==', school));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as ParentSummons));
+      } catch (err) {
+        console.error("Firestore error loading parent summons:", err);
+      }
+    }
+    const all = getLocalData<ParentSummons>('parent_summons', []);
+    return all.filter(s => s.school === school);
+  },
+
+  async createParentSummons(summons: Omit<ParentSummons, 'id' | 'createdAt'>): Promise<ParentSummons> {
+    const newSummons: ParentSummons = {
+      ...summons,
+      id: `summons-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    if (!useMock && db) {
+      try {
+        await setDoc(doc(db, 'parent_summons', newSummons.id), newSummons);
+      } catch (err) {
+        console.error("Firestore summons create failed:", err);
+      }
+    }
+    const all = getLocalData<ParentSummons>('parent_summons', []);
+    all.push(newSummons);
+    saveLocalData('parent_summons', all);
+    return newSummons;
+  },
+
+  async updateParentSummons(id: string, updates: Partial<ParentSummons>): Promise<void> {
+    if (!useMock && db) {
+      try {
+        await updateDoc(doc(db, 'parent_summons', id), updates);
+      } catch (err) {
+        console.error("Firestore summons update failed:", err);
+      }
+    }
+    const all = getLocalData<ParentSummons>('parent_summons', []);
+    const idx = all.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      all[idx] = { ...all[idx], ...updates };
+      saveLocalData('parent_summons', all);
+    }
+  },
+
+  async deleteParentSummons(id: string): Promise<void> {
+    if (!useMock && db) {
+      try {
+        await deleteDoc(doc(db, 'parent_summons', id));
+      } catch (err) {
+        console.error("Firestore summons delete failed:", err);
+      }
+    }
+    const all = getLocalData<ParentSummons>('parent_summons', []);
+    const filtered = all.filter(s => s.id !== id);
+    saveLocalData('parent_summons', filtered);
+  },
+
   async clearAllData(): Promise<void> {
     // Clear LocalStorage
     localStorage.removeItem('conexia_schools');
@@ -1548,6 +1624,7 @@ export const dbService = {
     localStorage.removeItem('conexia_rice_protocols');
     localStorage.removeItem('conexia_objectives');
     localStorage.removeItem('conexia_referrals');
+    localStorage.removeItem('conexia_parent_summons');
 
     const defaultAdmin: Staff = {
       id: "admin-2",
@@ -1566,7 +1643,7 @@ export const dbService = {
     if (!useMock && db) {
       try {
         console.log("Limpiando colecciones de Firestore...");
-        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers', 'rice_protocols', 'objectives', 'referrals'];
+        const collections = ['schools', 'students', 'staff', 'coexistence_cases', 'activities', 'psychosocial_cases', 'clinical_sessions', 'messages', 'meetings', 'survey_answers', 'rice_protocols', 'objectives', 'referrals', 'parent_summons'];
         for (const colName of collections) {
           const snap = await getDocs(collection(db, colName));
           for (const d of snap.docs) {

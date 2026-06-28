@@ -14,7 +14,8 @@ import {
   HelpCircle,
   X,
   ClipboardList,
-  Network
+  Network,
+  Mail
 } from 'lucide-react';
 import type { SchoolType, UserRole, Staff, School } from '../types';
 
@@ -129,6 +130,16 @@ const MODULE_HELP: Record<string, { title: string; desc: string; steps: string[]
       "Administra los establecimientos, RUTs de directivos y credenciales de acceso.",
       "Sube nóminas de alumnos en formato CSV para poblar las bases de datos de forma masiva."
     ]
+  },
+  summons: {
+    title: "Citaciones de Apoderados",
+    desc: "Creación y seguimiento de citaciones de apoderados, registro de asistencia, acuerdos y generación de actas en PDF.",
+    steps: [
+      "Selecciona primero el curso y luego al estudiante para el cual deseas crear la citación.",
+      "Completa los datos del apoderado, fecha, hora, lugar y motivo detallado.",
+      "Una vez realizada la reunión, cambia el estado a 'Asistió' y registra los acuerdos y compromisos acordados.",
+      "Exporta la citación oficial en PDF. Si es del Colegio BioBío, se incluirá la insignia institucional automáticamente."
+    ]
   }
 };
 
@@ -150,11 +161,12 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },
     { id: 'management', label: 'Plan de Gestión', icon: ClipboardList },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
+    { id: 'calendar', label: 'Calendario', icon: CalendarRange },
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
+    { id: 'summons', label: 'Citaciones', icon: Mail },
     { id: 'protocols', label: 'Protocolos RICE', icon: ClipboardCheck },
     { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
     { id: 'derivations', label: 'Derivación Externa', icon: Network },
-    { id: 'calendar', label: 'Calendario', icon: CalendarRange },
     { id: 'messaging', label: 'Mensajería', icon: MessageSquare },
     { id: 'settings', label: 'Ajustes y Carga', icon: Settings }
   ];
@@ -185,7 +197,12 @@ export const Layout: React.FC<LayoutProps> = ({
             <select
               value={activeSchool}
               onChange={(e) => setActiveSchool(e.target.value)}
-              className="w-full bg-white text-slate-700 rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer font-semibold"
+              disabled={activeRole !== 'Administrador'}
+              className={`w-full bg-white text-slate-700 rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-semibold ${
+                activeRole !== 'Administrador' 
+                  ? 'bg-slate-100 text-slate-500 cursor-not-allowed opacity-80' 
+                  : 'cursor-pointer'
+              }`}
             >
               {schools.map(s => (
                 <option key={s.id} value={s.name}>{s.name}</option>

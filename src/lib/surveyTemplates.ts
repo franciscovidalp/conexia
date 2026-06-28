@@ -98,5 +98,41 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
       { id: 'q5', text: '¿A quién(es) consideras como líder(es) o referente(s) positivo(s) en el curso (a quien todos escuchan)?', category: 'Clima Social' },
       { id: 'q6', text: '¿Quién(es) crees que se siente(n) más solo(s) o aislado(s) en el curso en el día a día?', category: 'Clima Social' }
     ]
+  },
+  {
+    id: 'convivencia-rice',
+    title: 'Diagnóstico: Convivencia Escolar y Normativa RICE',
+    description: 'Evalúa el nivel de conocimiento del reglamento interno escolar, la percepción de justicia en las medidas aplicadas y el nivel de participación activa del alumnado en el bienestar escolar.',
+    target: 'Estudiantes',
+    questions: [
+      { id: 'q1', text: 'Siento que las normas del colegio se aplican a todos los estudiantes de la misma manera, sin favoritismos.', category: 'Clima Social' },
+      { id: 'q2', text: 'Conozco las faltas y las medidas disciplinarias que están descritas en el Reglamento Interno (RICE).', category: 'Seguridad' },
+      { id: 'q3', text: 'Sé a qué profesional acudir inmediatamente si veo que a un compañero le están haciendo bullying en internet o en el patio.', category: 'Seguridad' },
+      { id: 'q4', text: 'Los directivos e inspectores me escuchan con respeto cuando quiero dar mi versión sobre algún conflicto.', category: 'Apoyo Docente' },
+      { id: 'q5', text: 'Siento que las sanciones o amonestaciones aplicadas en mi colegio son justas y buscan que aprendamos del error.', category: 'Clima Social' },
+      { id: 'q6', text: 'En las reuniones de curso o de estudiantes conversamos con frecuencia sobre cómo mantener un buen trato mutuo.', category: 'Clima Social' },
+      { id: 'q7', text: 'El ambiente físico del colegio (salas, patios, baños) es limpio, ordenado y me hace sentir seguro(a).', category: 'Seguridad' },
+      { id: 'q8', text: 'Mis profesores intervienen de inmediato cuando escuchan comentarios burlones o insultos entre estudiantes.', category: 'Apoyo Docente' },
+      { id: 'q9', text: 'Siento que puedo dar mi opinión con total libertad para mejorar las reglas de mi curso.', category: 'Autoestima' },
+      { id: 'q10', text: 'El colegio reconoce y felicita públicamente a los cursos y alumnos que tienen buena convivencia.', category: 'Autoestima' }
+    ]
+  },
+  {
+    id: 'resolucion-conflictos',
+    title: 'Diagnóstico: Mediación y Resolución de Conflictos',
+    description: 'Mide la preferencia por soluciones dialogadas, la efectividad del equipo de mediación escolar y la capacidad percibida por los estudiantes para resolver desacuerdos pacíficamente.',
+    target: 'Estudiantes',
+    questions: [
+      { id: 'q1', text: 'Cuando tengo un problema o pelea con un compañero, prefiero conversar antes que gritar o agredir.', category: 'Autoestima' },
+      { id: 'q2', text: 'Sé que en el colegio existe un equipo de estudiantes o profesores mediadores que ayudan a solucionar conflictos.', category: 'Seguridad' },
+      { id: 'q3', text: 'Si pido ayuda a un mediador del colegio, confío en que nos ayudará a llegar a un acuerdo pacífico.', category: 'Apoyo Docente' },
+      { id: 'q4', text: 'Siento que el colegio nos enseña técnicas útiles de respiración o diálogo para controlar la rabia.', category: 'Autoestima' },
+      { id: 'q5', text: 'En mi curso, la mayoría de los estudiantes prefiere disculparse y reparar el daño cuando comete un error.', category: 'Clima Social' },
+      { id: 'q6', text: 'Los docentes nos dan la oportunidad de calmarnos antes de mandarnos directamente a Inspectoría.', category: 'Apoyo Docente' },
+      { id: 'q7', text: 'He aprendido en el colegio cómo expresar lo que siento sin insultar a la persona con la que discuto.', category: 'Autoestima' },
+      { id: 'q8', text: 'El diálogo con mis compañeros en situaciones difíciles suele terminar en un acuerdo beneficioso para ambos.', category: 'Clima Social' },
+      { id: 'q9', text: 'Siento que el colegio apoya activamente la mediación de conflictos en vez de solo aplicar castigos.', category: 'Clima Social' },
+      { id: 'q10', text: 'Sé que disculparme o perdonar me ayuda a sentirme mejor y mejora la convivencia general del curso.', category: 'Autoestima' }
+    ]
   }
 ];

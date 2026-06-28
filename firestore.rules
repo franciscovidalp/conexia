@@ -1,0 +1,194 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for security checks
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getRole() {
+      return getUserData().role;
+    }
+
+    function getSchool() {
+      return getUserData().school;
+    }
+
+    function belongsToSchool(schoolName) {
+      return getSchool() == schoolName;
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. Schools Collection
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && getRole() == 'Administrador';
+    }
+
+    // 2. Users Collection (UID mapping document created at login)
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || getRole() == 'Administrador');
+      allow create, update: if isAuthenticated() && 
+        request.auth.token.email == request.resource.data.email &&
+        request.resource.data.role == get(/databases/$(database)/documents/staff/$(request.resource.data.rut)).data.role &&
+        request.resource.data.school == get(/databases/$(database)/documents/staff/$(request.resource.data.rut)).data.school;
+      allow delete: if isAuthenticated() && getRole() == 'Administrador';
+    }
+
+    // 3. Staff Collection
+    match /staff/{staffId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && (getRole() == 'Administrador' || (getRole() == 'Directivo' && belongsToSchool(request.resource.data.school)));
+      allow update: if isAuthenticated() && (
+        getRole() == 'Administrador' || 
+        (getRole() == 'Directivo' && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school)) ||
+        (
+          request.auth.token.email == resource.data.email && 
+          request.auth.token.email == request.resource.data.email &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.school == resource.data.school
+        )
+      );
+      allow delete: if isAuthenticated() && (getRole() == 'Administrador' || (getRole() == 'Directivo' && belongsToSchool(resource.data.school)));
+    }
+
+    // 4. Students Collection
+    match /students/{studentId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) && 
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) && 
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && 
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+    }
+
+    // 5. Coexistence Cases Collection
+    match /coexistence_cases/{caseId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school);
+    }
+
+    // 6. Prevention/Contention Activities
+    match /activities/{activityId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school);
+    }
+
+    // 7. Psychosocial Cases (Sensitive Clinical Data)
+    match /psychosocial_cases/{caseId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+    }
+
+    // 8. Clinical Sessions (Highly Sensitive Medical/Therapeutic Notes)
+    match /clinical_sessions/{sessionId} {
+      allow read: if isAuthenticated() && 
+        belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow create: if isAuthenticated() && 
+        belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(request.resource.data.caseId)).data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow update: if isAuthenticated() && 
+        belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
+        belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(request.resource.data.caseId)).data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow delete: if isAuthenticated() && 
+        belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+    }
+
+    // 9. Messages (Chat)
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        request.auth.token.email == resource.data.senderId || 
+        request.auth.token.email == resource.data.recipientId
+      );
+      allow create: if isAuthenticated() && request.auth.token.email == request.resource.data.senderId;
+      allow update, delete: if false; // Messages are immutable
+    }
+
+    // 10. Meetings
+    match /meetings/{meetingId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+    }
+
+    // 11. Survey Answers
+    match /survey_answers/{answerId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow create: if true; // Public submission allowed via link
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+    }
+
+    // 12. Rice Protocols
+    match /rice_protocols/{protocolId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+    }
+
+    // 13. Management Objectives (Plan de Gestión)
+    match /objectives/{objectiveId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+    }
+
+    // 14. External Referrals (Derivaciones)
+    match /referrals/{referralId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+    }
+
+    // 15. Parent Summons (Citaciones)
+    match /parent_summons/{summonsId} {
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+      allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+    }
+  }
+}

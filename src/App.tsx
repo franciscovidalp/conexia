@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { dbService } from './firebase';
-import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol, ManagementObjective, ExternalReferral } from './types';
+import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from './types';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
@@ -23,6 +23,7 @@ const PublicSurveyForm = lazy(() => import('./components/PublicSurveyForm').then
 const RiceProtocolsModule = lazy(() => import('./components/RiceProtocolsModule').then(m => ({ default: m.RiceProtocolsModule })));
 const ManagementModule = lazy(() => import('./components/ManagementModule').then(m => ({ default: m.ManagementModule })));
 const DerivationsModule = lazy(() => import('./components/DerivationsModule').then(m => ({ default: m.DerivationsModule })));
+const SummonsModule = lazy(() => import('./components/SummonsModule').then(m => ({ default: m.SummonsModule })));
 
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
   const [riceProtocols, setRiceProtocols] = useState<RiceProtocol[]>([]);
   const [managementObjectives, setManagementObjectives] = useState<ManagementObjective[]>([]);
   const [externalReferrals, setExternalReferrals] = useState<ExternalReferral[]>([]);
+  const [summonsList, setSummonsList] = useState<ParentSummons[]>([]);
   const [cacheStatus, setCacheStatus] = useState<'loading' | 'cached' | 'error'>('loading');
 
   // 10 Color Theme state
@@ -96,6 +98,7 @@ function App() {
       const loadedProtocols = await dbService.getRiceProtocols(school);
       const loadedObjectives = await dbService.getManagementObjectives(school);
       const loadedReferrals = await dbService.getExternalReferrals(school);
+      const loadedSummons = await dbService.getParentSummons(school);
  
       setStudents(loadedStudents);
       setStaff(loadedStaff);
@@ -105,6 +108,7 @@ function App() {
       setRiceProtocols(loadedProtocols || []);
       setManagementObjectives(loadedObjectives || []);
       setExternalReferrals(loadedReferrals || []);
+      setSummonsList(loadedSummons || []);
       setCacheStatus('cached');
     } catch (e) {
       console.error("Error al cargar la base de datos: ", e);
@@ -316,6 +320,17 @@ function App() {
               students={students}
               staff={staff}
               loggedInUser={loggedInUser!}
+            />
+          )}
+
+          {activeTab === 'summons' && (
+            <SummonsModule
+              activeSchool={activeSchool}
+              summonsList={summonsList}
+              onSummonsChange={setSummonsList}
+              students={students}
+              staff={staff}
+              loggedInUser={loggedInUser}
             />
           )}
         </Suspense>

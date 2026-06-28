@@ -30,6 +30,16 @@ const isOverdue = (p: RiceProtocol): boolean => {
   return today > p.dueDate;
 };
 
+const getDaysRemaining = (dueDateStr: string): number => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDateStr + 'T12:00:00');
+  due.setHours(0, 0, 0, 0);
+  const diffTime = due.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
 export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
   activeSchool,
   students,
@@ -61,6 +71,15 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
   const [newDescription, setNewDescription] = useState('');
   const [newReporter, setNewReporter] = useState('');
   const [newInitialMeasures, setNewInitialMeasures] = useState('');
+
+  // Tab states for Drawer (Steps vs. Measures)
+  const [drawerTab, setDrawerTab] = useState<'steps' | 'measures'>('steps');
+
+  // Form states for creating a new Measure
+  const [measureDesc, setMeasureDesc] = useState('');
+  const [measureResp, setMeasureResp] = useState('');
+  const [measureStart, setMeasureStart] = useState(() => new Date().toISOString().split('T')[0]);
+  const [measureEnd, setMeasureEnd] = useState(() => addDays(new Date().toISOString().split('T')[0], 10));
 
   // 15 school/calendar days for due date
   const handleOpenNewModal = () => {
@@ -178,6 +197,7 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
   // Open drawer and load step details
   const handleSelectProtocol = (p: RiceProtocol) => {
     setSelectedProtocol(p);
+    setDrawerTab('steps');
     // Find first incomplete step or default to first step
     const firstIncomplete = p.steps.find(s => s.status !== 'Completado');
     const stepId = firstIncomplete ? firstIncomplete.id : '1_detection';
@@ -226,6 +246,118 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
       console.error(err);
       toast.error('Error al guardar cambios.');
     }
+  };
+
+  const handleAddMeasure = async () => {
+    if (!selectedProtocol) return;
+    if (!measureDesc.trim() || !measureResp.trim()) {
+      toast.error('Por favor, ingresa la descripción y el responsable de la medida.');
+      return;
+    }
+
+    const newMeasure = {
+      id: 'measure_' + Date.now(),
+      description: measureDesc.trim(),
+      responsibleName: measureResp.trim(),
+      startDate: measureStart,
+      endDate: measureEnd,
+      complianceLog: {}
+    };
+
+    const updatedMeasures = [...(selectedProtocol.measures || []), newMeasure];
+
+    try {
+      await dbService.updateRiceProtocol(selectedProtocol.id, { measures: updatedMeasures });
+      
+      const updatedProto = {
+        ...selectedProtocol,
+        measures: updatedMeasures
+      };
+
+      setSelectedProtocol(updatedProto);
+      onRiceProtocolsChange(riceProtocols.map(p => p.id === selectedProtocol.id ? updatedProto : p));
+      
+      setMeasureDesc('');
+      setMeasureResp('');
+      toast.success('Medida de resguardo registrada.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al registrar la medida.');
+    }
+  };
+
+  const handleToggleCompliance = async (measureId: string, dateStr: string, completed: boolean) => {
+    if (!selectedProtocol || !selectedProtocol.measures) return;
+
+    const updatedMeasures = selectedProtocol.measures.map(m => {
+      if (m.id === measureId) {
+        return {
+          ...m,
+          complianceLog: {
+            ...m.complianceLog,
+            [dateStr]: completed
+          }
+        };
+      }
+      return m;
+    });
+
+    try {
+      await dbService.updateRiceProtocol(selectedProtocol.id, { measures: updatedMeasures });
+      
+      const updatedProto = {
+        ...selectedProtocol,
+        measures: updatedMeasures
+      };
+
+      setSelectedProtocol(updatedProto);
+      onRiceProtocolsChange(riceProtocols.map(p => p.id === selectedProtocol.id ? updatedProto : p));
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al registrar cumplimiento.');
+    }
+  };
+
+  const handleDeleteMeasure = async (measureId: string) => {
+    if (!selectedProtocol || !selectedProtocol.measures) return;
+
+    const updatedMeasures = selectedProtocol.measures.filter(m => m.id !== measureId);
+
+    try {
+      await dbService.updateRiceProtocol(selectedProtocol.id, { measures: updatedMeasures });
+      
+      const updatedProto = {
+        ...selectedProtocol,
+        measures: updatedMeasures
+      };
+
+      setSelectedProtocol(updatedProto);
+      onRiceProtocolsChange(riceProtocols.map(p => p.id === selectedProtocol.id ? updatedProto : p));
+      toast.success('Medida de resguardo eliminada.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al eliminar la medida.');
+    }
+  };
+
+  const getWeekDays = () => {
+    const current = new Date();
+    const week = [];
+    const distance = current.getDay() - 1; // 0 para Dom, 1 para Lun, ...
+    const monday = new Date(current);
+    monday.setDate(current.getDate() - (distance < 0 ? 6 : distance));
+    monday.setHours(12, 0, 0, 0);
+
+    for (let i = 0; i < 5; i++) {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      week.push({
+        dateStr: day.toISOString().split('T')[0],
+        dayName: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'][i],
+        shortLabel: day.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })
+      });
+    }
+    return week;
   };
 
   const handleCloseProtocol = async () => {
@@ -461,10 +593,50 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
                         {p.startedAt}
                       </td>
                       <td className="px-6 py-4.5">
-                        <div className={`font-semibold ${isLate ? 'text-red-600 font-bold flex items-center gap-1 animate-pulse' : 'text-slate-650'}`}>
-                          {isLate && <AlertCircle size={13} />}
-                          {p.dueDate}
-                        </div>
+                        <div className="font-semibold text-slate-700">{p.dueDate}</div>
+                        {p.status === 'Cerrado' ? (
+                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                            Completado
+                          </div>
+                        ) : (() => {
+                          const daysLeft = getDaysRemaining(p.dueDate);
+                          if (daysLeft < 0) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-700 bg-red-50 border border-red-100 rounded px-1.5 py-0.5 mt-1 animate-pulse">
+                                <AlertCircle size={10} />
+                                Vencido {Math.abs(daysLeft)} d
+                              </span>
+                            );
+                          } else if (daysLeft === 0) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 mt-1 animate-pulse">
+                                <AlertCircle size={10} />
+                                Vence hoy
+                              </span>
+                            );
+                          } else if (daysLeft <= 3) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1">
+                                <AlertCircle size={10} />
+                                Crítico ({daysLeft} d)
+                              </span>
+                            );
+                          } else if (daysLeft <= 7) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-yellow-750 bg-yellow-50 border border-yellow-200 rounded px-1.5 py-0.5 mt-1">
+                                <Clock size={10} />
+                                Advertencia ({daysLeft} d)
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 mt-1">
+                                <CheckCircle2 size={10} />
+                                En plazo ({daysLeft} d)
+                              </span>
+                            );
+                          }
+                        })()}
                       </td>
                       <td className="px-6 py-4.5">
                         <div className="w-full max-w-[130px] space-y-1">
@@ -548,9 +720,52 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
                   Protocolo {selectedProtocol.protocolType}
                 </span>
                 <h3 className="text-lg font-black mt-1.5">{selectedProtocol.studentName}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Curso: {selectedProtocol.grade} • Iniciado el {selectedProtocol.startedAt} • Límite: {selectedProtocol.dueDate}
-                </p>
+                <div className="flex items-center flex-wrap gap-2 text-xs text-slate-400 mt-1">
+                  <span>Curso: {selectedProtocol.grade}</span>
+                  <span>•</span>
+                  <span>Iniciado el {selectedProtocol.startedAt}</span>
+                  <span>•</span>
+                  <span>Límite: {selectedProtocol.dueDate}</span>
+                  {selectedProtocol.status === 'Abierto' && (() => {
+                    const daysLeft = getDaysRemaining(selectedProtocol.dueDate);
+                    if (daysLeft < 0) {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-950/40 border border-red-900/60 rounded px-1.5 py-0.5 ml-1">
+                          <AlertCircle size={10} className="animate-pulse" />
+                          Vencido {Math.abs(daysLeft)} d
+                        </span>
+                      );
+                    } else if (daysLeft === 0) {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-950/40 border border-red-900/60 rounded px-1.5 py-0.5 ml-1 animate-pulse">
+                          <AlertCircle size={10} />
+                          Vence hoy
+                        </span>
+                      );
+                    } else if (daysLeft <= 3) {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950/40 border border-amber-900/60 rounded px-1.5 py-0.5 ml-1">
+                          <AlertCircle size={10} />
+                          Crítico ({daysLeft} d)
+                        </span>
+                      );
+                    } else if (daysLeft <= 7) {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow-400 bg-yellow-950/40 border border-yellow-900/60 rounded px-1.5 py-0.5 ml-1">
+                          <Clock size={10} />
+                          Advertencia ({daysLeft} d)
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-900/60 rounded px-1.5 py-0.5 ml-1">
+                          <CheckCircle2 size={10} />
+                          En plazo ({daysLeft} d)
+                        </span>
+                      );
+                    }
+                  })()}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 {selectedProtocol.status === 'Abierto' ? (
@@ -593,308 +808,521 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
             {/* Split Content Area */}
             <div className="flex-1 flex overflow-hidden">
               {/* Left Timeline Sidebar */}
-              <div className="w-1/3 border-r border-slate-200 bg-white p-5 space-y-4 overflow-y-auto shrink-0">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Línea de Tiempo RICE</h4>
-                <div className="space-y-1.5">
-                  {selectedProtocol.steps.map((step, idx) => {
-                    const isSelected = step.id === activeStepId;
-                    const isDone = step.status === 'Completado';
-                    const isPending = step.status === 'Pendiente';
-                    const isProcessing = step.status === 'En Proceso';
-
-                    return (
-                      <button
-                        key={step.id}
-                        onClick={() => handleSelectStep(selectedProtocol, step.id)}
-                        className={`w-full flex text-left p-3 rounded-xl border transition-all relative ${
-                          isSelected 
-                            ? 'border-primary bg-primary-light/10 text-primary font-bold shadow-sm' 
-                            : 'border-slate-100 hover:border-slate-200 text-slate-750 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex gap-2.5 w-full">
-                          {/* Dot / Number indicator */}
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-extrabold mt-0.5 ${
-                            isDone 
-                              ? 'bg-emerald-500 text-white' 
-                              : isProcessing 
-                                ? 'bg-indigo-500 text-white animate-pulse'
-                                : 'bg-slate-200 text-slate-500'
-                          }`}>
-                            {isDone ? '✓' : idx + 1}
-                          </div>
-                          
-                          <div>
-                            <p className="text-xs leading-snug font-bold">{step.name}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[150px]">
-                              {isDone ? `Hecho: ${step.completedAt}` : isPending ? 'Pendiente' : 'En edición'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {isSelected && <span className="absolute top-0 right-0 w-1.5 h-full bg-primary rounded-r-xl"></span>}
-                      </button>
-                    );
-                  })}
+              <div className="w-1/3 border-r border-slate-200 bg-white p-5 flex flex-col overflow-y-auto shrink-0">
+                {/* Drawer Tab Switcher */}
+                <div className="flex border-b border-slate-100 mb-4 text-xs font-extrabold uppercase tracking-wider shrink-0">
+                  <button
+                    onClick={() => setDrawerTab('steps')}
+                    className={`flex-1 pb-2.5 text-center border-b-2 transition-all cursor-pointer ${
+                      drawerTab === 'steps'
+                        ? 'border-indigo-650 text-indigo-750 font-black'
+                        : 'border-transparent text-slate-400 hover:text-slate-650'
+                    }`}
+                  >
+                    1. Etapas RICE
+                  </button>
+                  <button
+                    onClick={() => setDrawerTab('measures')}
+                    className={`flex-1 pb-2.5 text-center border-b-2 transition-all cursor-pointer ${
+                      drawerTab === 'measures'
+                        ? 'border-indigo-650 text-indigo-750 font-black'
+                        : 'border-transparent text-slate-400 hover:text-slate-650'
+                    }`}
+                  >
+                    2. Medidas
+                  </button>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-500 leading-relaxed flex gap-2">
-                  <Info size={16} className="text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-slate-700">Importante:</span> Conforme a las orientaciones de la Superintendencia, cada etapa debe contener registros verídicos y firmas de respaldo.
+                {drawerTab === 'steps' ? (
+                  <div className="flex-1 flex flex-col justify-between space-y-4">
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Línea de Tiempo RICE</h4>
+                      {selectedProtocol.steps.map((step, idx) => {
+                        const isSelected = step.id === activeStepId;
+                        const isDone = step.status === 'Completado';
+                        const isPending = step.status === 'Pendiente';
+                        const isProcessing = step.status === 'En Proceso';
+
+                        return (
+                          <button
+                            key={step.id}
+                            onClick={() => handleSelectStep(selectedProtocol, step.id)}
+                            className={`w-full flex text-left p-3 rounded-xl border transition-all relative ${
+                              isSelected 
+                                ? 'border-primary bg-primary-light/10 text-primary font-bold shadow-sm' 
+                                : 'border-slate-100 hover:border-slate-200 text-slate-750 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex gap-2.5 w-full">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-extrabold mt-0.5 ${
+                                isDone 
+                                  ? 'bg-emerald-500 text-white' 
+                                  : isProcessing 
+                                    ? 'bg-indigo-500 text-white animate-pulse'
+                                    : 'bg-slate-200 text-slate-500'
+                              }`}>
+                                {isDone ? '✓' : idx + 1}
+                              </div>
+                              
+                              <div>
+                                <p className="text-xs leading-snug font-bold">{step.name}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[150px]">
+                                  {isDone ? `Hecho: ${step.completedAt}` : isPending ? 'Pendiente' : 'En edición'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {isSelected && <span className="absolute top-0 right-0 w-1.5 h-full bg-primary rounded-r-xl"></span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-500 leading-relaxed flex gap-2 shrink-0">
+                      <Info size={16} className="text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-slate-700">Importante:</span> Conforme a las orientaciones de la Superintendencia, cada etapa debe contener registros verídicos y firmas de respaldo.
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Medidas de Resguardo</h4>
+                      {(!selectedProtocol.measures || selectedProtocol.measures.length === 0) ? (
+                        <div className="text-center py-6 text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                          No hay medidas de resguardo decretadas para este caso.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedProtocol.measures.map((m) => {
+                            const totalDays = Object.keys(m.complianceLog || {}).length;
+                            const compliedDays = Object.values(m.complianceLog || {}).filter(Boolean).length;
+                            const compliancePercent = totalDays > 0 ? Math.round((compliedDays / totalDays) * 100) : 100;
+
+                            return (
+                              <div key={m.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between gap-1.5 text-xs animate-in fade-in">
+                                <div>
+                                  <div className="font-bold text-slate-800 line-clamp-2">{m.description}</div>
+                                  <div className="text-[10px] text-slate-450 mt-1">Responsable: {m.responsibleName}</div>
+                                </div>
+                                <div className="flex justify-between items-center mt-1 pt-1.5 border-t border-slate-100">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    compliancePercent >= 80 
+                                      ? 'text-emerald-700 bg-emerald-50' 
+                                      : compliancePercent >= 50 
+                                        ? 'text-yellow-700 bg-yellow-50' 
+                                        : 'text-red-700 bg-red-50'
+                                  }`}>
+                                    Cumplimiento: {compliancePercent}%
+                                  </span>
+                                  {selectedProtocol.status === 'Abierto' && (
+                                    <button
+                                      onClick={() => handleDeleteMeasure(m.id)}
+                                      className="text-red-500 hover:text-red-700 font-bold text-[10px] cursor-pointer"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-500 leading-relaxed flex gap-2 shrink-0">
+                      <ShieldAlert size={16} className="text-indigo-650 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-slate-700">Evidencia de Medidas:</span> Marcar el cumplimiento diario ayuda al colegio a demostrar proactividad y debida diligencia.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right Step Detail & Editor */}
               <div className="flex-1 bg-slate-50 p-6 flex flex-col justify-between overflow-y-auto">
-                <div className="space-y-6">
-                  {/* Stage description card */}
-                  <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-sm space-y-1">
-                    <h4 className="text-base font-extrabold text-slate-800">
-                      {selectedProtocol.steps.find(s => s.id === activeStepId)?.name}
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      {selectedProtocol.steps.find(s => s.id === activeStepId)?.description}
-                    </p>
-                  </div>
-
-                  {/* Form specific fields based on activeStepId */}
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                    <h5 className="text-xs font-bold text-slate-450 uppercase tracking-wider">Datos e Indicadores de la Etapa</h5>
-                    
-                    {activeStepId === '1_detection' && (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Medidas de resguardo adoptadas de inmediato</label>
-                          <textarea
-                            value={stepFields.initialMeasures || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, initialMeasures: e.target.value })}
-                            placeholder="Ej. Separación preventiva de cursos durante los recreos, tutoría individual, etc."
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                            rows={3}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Funcionario que detecta / reporta</label>
-                          <input
-                            type="text"
-                            value={stepFields.reporterName || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, reporterName: e.target.value })}
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                          />
-                        </div>
+                {drawerTab === 'steps' ? (
+                  <div className="h-full flex flex-col justify-between">
+                    <div className="space-y-6">
+                      {/* Stage description card */}
+                      <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-sm space-y-1 animate-in fade-in">
+                        <h4 className="text-base font-extrabold text-slate-800">
+                          {selectedProtocol.steps.find(s => s.id === activeStepId)?.name}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {selectedProtocol.steps.find(s => s.id === activeStepId)?.description}
+                        </p>
                       </div>
-                    )}
 
-                    {activeStepId === '2_notification' && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Citación Apoderado Víctima</label>
-                            <div className="relative">
-                              <CalendarDays className="absolute left-3 top-2.5 h-4 w-4 text-slate-450" />
-                              <input
-                                type="date"
-                                value={stepFields.victimParentNotifiedDate || ''}
-                                onChange={(e) => setStepFields({ ...stepFields, victimParentNotifiedDate: e.target.value })}
+                      {/* Form specific fields based on activeStepId */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
+                        <h5 className="text-xs font-bold text-slate-450 uppercase tracking-wider">Datos e Indicadores de la Etapa</h5>
+                        
+                        {activeStepId === '1_detection' && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Medidas de resguardo adoptadas de inmediato</label>
+                              <textarea
+                                value={stepFields.initialMeasures || ''}
+                                onChange={(e) => setStepFields({ ...stepFields, initialMeasures: e.target.value })}
+                                placeholder="Ej. Separación preventiva de cursos durante los recreos, tutoría individual, etc."
                                 disabled={selectedProtocol.status === 'Cerrado'}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                rows={3}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Funcionario que detecta / reporta</label>
+                              <input
+                                type="text"
+                                value={stepFields.reporterName || ''}
+                                onChange={(e) => setStepFields({ ...stepFields, reporterName: e.target.value })}
+                                disabled={selectedProtocol.status === 'Cerrado'}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                               />
                             </div>
                           </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Citación Apoderado Denunciado</label>
-                            <div className="relative">
-                              <CalendarDays className="absolute left-3 top-2.5 h-4 w-4 text-slate-450" />
-                              <input
-                                type="date"
-                                value={stepFields.aggressorParentNotifiedDate || ''}
-                                onChange={(e) => setStepFields({ ...stepFields, aggressorParentNotifiedDate: e.target.value })}
+                        )}
+
+                        {activeStepId === '2_notification' && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Citación Apoderado Víctima (Fecha)</label>
+                                <input
+                                  type="date"
+                                  value={stepFields.victimParentNotifiedDate || ''}
+                                  onChange={(e) => setStepFields({ ...stepFields, victimParentNotifiedDate: e.target.value })}
+                                  disabled={selectedProtocol.status === 'Cerrado'}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Citación Apoderado Denunciado (Fecha)</label>
+                                <input
+                                  type="date"
+                                  value={stepFields.aggressorParentNotifiedDate || ''}
+                                  onChange={(e) => setStepFields({ ...stepFields, aggressorParentNotifiedDate: e.target.value })}
+                                  disabled={selectedProtocol.status === 'Cerrado'}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Medio de Comunicación / Notificación</label>
+                              <select
+                                value={stepFields.communicationType || 'Reunión Presencial'}
+                                onChange={(e) => setStepFields({ ...stepFields, communicationType: e.target.value })}
                                 disabled={selectedProtocol.status === 'Cerrado'}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                              >
+                                <option value="Reunión Presencial">Reunión Presencial</option>
+                                <option value="Correo Oficial">Correo Oficial</option>
+                                <option value="Comunicación Telefónica">Comunicación Telefónica</option>
+                                <option value="Carta Certificada">Carta Certificada</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeStepId === '3_investigation' && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Testigos / Entrevistados (Separados por coma)</label>
+                              <input
+                                type="text"
+                                placeholder="Ej. Pedro Pérez (Docente), Ana Gómez (Inspectora), etc."
+                                value={Array.isArray(stepFields.interviews) ? stepFields.interviews.join(', ') : ''}
+                                onChange={(e) => setStepFields({ ...stepFields, interviews: e.target.value.split(',').map(s => s.trim()) })}
+                                disabled={selectedProtocol.status === 'Cerrado'}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Conclusiones de la Investigación</label>
+                              <textarea
+                                placeholder="Registrar hechos validados, versiones concordantes y conclusiones sobre la vulneración..."
+                                value={stepFields.findings || ''}
+                                onChange={(e) => setStepFields({ ...stepFields, findings: e.target.value })}
+                                disabled={selectedProtocol.status === 'Cerrado'}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                rows={3}
                               />
                             </div>
                           </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Canal de Comunicación Oficial</label>
-                          <input
-                            type="text"
-                            placeholder="Ej. Acta firmada presencial / Correo certificado"
-                            value={stepFields.communicationType || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, communicationType: e.target.value })}
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                          />
-                        </div>
-                      </div>
-                    )}
+                        )}
 
-                    {activeStepId === '3_investigation' && (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Entrevistados / Testigos declarantes (Separar por comas)</label>
-                          <input
-                            type="text"
-                            placeholder="Ej. Profesor Jefe, Inspector de patio, Alumno A"
-                            value={Array.isArray(stepFields.interviews) ? stepFields.interviews.join(', ') : stepFields.interviews || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, interviews: e.target.value.split(',').map((s: string) => s.trim()) })}
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Hallazgos y Conclusiones de la Investigación</label>
-                          <textarea
-                            placeholder="Registrar un breve análisis cronológico de los antecedentes y evidencias levantadas..."
-                            value={stepFields.findings || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, findings: e.target.value })}
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeStepId === '4_resolution' && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Tipo de Medida Adoptada</label>
-                            <select
-                              value={stepFields.measureType || 'Formativa'}
-                              onChange={(e) => setStepFields({ ...stepFields, measureType: e.target.value })}
-                              disabled={selectedProtocol.status === 'Cerrado'}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
-                            >
-                              <option value="Formativa">Medida Formativa RICE</option>
-                              <option value="Pedagógica">Medida Pedagógica</option>
-                              <option value="Disciplinaria / Sanción">Disciplinaria / Sanción RICE</option>
-                              <option value="Derivación Externa">Derivación Externa</option>
-                            </select>
+                        {activeStepId === '4_resolution' && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Tipo de Medida Adoptada</label>
+                                <select
+                                  value={stepFields.measureType || 'Formativa'}
+                                  onChange={(e) => setStepFields({ ...stepFields, measureType: e.target.value })}
+                                  disabled={selectedProtocol.status === 'Cerrado'}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                >
+                                  <option value="Formativa">Medida Formativa RICE</option>
+                                  <option value="Pedagógica">Medida Pedagógica</option>
+                                  <option value="Sanción Disciplinaria">Sanción Disciplinaria Directa</option>
+                                  <option value="Derivación de Apoyo">Derivación de Apoyo Continuo</option>
+                                </select>
+                              </div>
+                              <div className="flex items-center gap-2 pt-5">
+                                <input
+                                  type="checkbox"
+                                  id="commitments"
+                                  checked={stepFields.commitmentsSigned || false}
+                                  onChange={(e) => setStepFields({ ...stepFields, commitmentsSigned: e.target.checked })}
+                                  disabled={selectedProtocol.status === 'Cerrado'}
+                                  className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary focus:ring-1 cursor-pointer"
+                                />
+                                <label htmlFor="commitments" className="text-xs font-bold text-slate-650 cursor-pointer">
+                                  ¿Firmaron carta de compromisos?
+                                </label>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Descripción detallada de la Medida/Sanción</label>
+                              <textarea
+                                placeholder="Describir las sanciones, amonestaciones escritas o intervenciones psicopedagógicas acordadas..."
+                                value={stepFields.resolutionDescription || ''}
+                                onChange={(e) => setStepFields({ ...stepFields, resolutionDescription: e.target.value })}
+                                disabled={selectedProtocol.status === 'Cerrado'}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                rows={3}
+                              />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 pt-5">
+                        )}
+
+                        {activeStepId === '5_followup' && (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center gap-2 pt-5">
+                                <input
+                                  type="checkbox"
+                                  id="referred"
+                                  checked={stepFields.referredToDupla || false}
+                                  onChange={(e) => setStepFields({ ...stepFields, referredToDupla: e.target.checked })}
+                                  disabled={selectedProtocol.status === 'Cerrado'}
+                                  className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary focus:ring-1 cursor-pointer"
+                                />
+                                <label htmlFor="referred" className="text-xs font-bold text-slate-650 cursor-pointer">
+                                  ¿Derivar caso a Dupla Psicosocial?
+                                </label>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Próximo Seguimiento / Control</label>
+                                <div className="relative">
+                                  <CalendarDays className="absolute left-3 top-2.5 h-4 w-4 text-slate-450" />
+                                  <input
+                                    type="date"
+                                    value={stepFields.followupDate || ''}
+                                    onChange={(e) => setStepFields({ ...stepFields, followupDate: e.target.value })}
+                                    disabled={selectedProtocol.status === 'Cerrado'}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Resumen final de Cierre y Convivencia</label>
+                              <textarea
+                                placeholder="Redactar el balance final de la convivencia tras la aplicación de medidas y estado del alumno..."
+                                value={stepFields.finalReportSummary || ''}
+                                onChange={(e) => setStepFields({ ...stepFields, finalReportSummary: e.target.value })}
+                                disabled={selectedProtocol.status === 'Cerrado'}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Standard observations / bitacora notes */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-550 mb-1">Observaciones / Bitácora de esta Etapa</label>
+                          <textarea
+                            value={stepNotes}
+                            onChange={(e) => setStepNotes(e.target.value)}
+                            placeholder="Ingrese comentarios sobre el progreso, llamadas, dificultades o estados del proceso..."
+                            disabled={selectedProtocol.status === 'Cerrado'}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 font-sans"
+                            rows={3.5}
+                          />
+                        </div>
+
+                        {/* Complete Step Checkbox */}
+                        {selectedProtocol.status === 'Abierto' && (
+                          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                             <input
                               type="checkbox"
-                              id="commitments"
-                              checked={stepFields.commitmentsSigned || false}
-                              onChange={(e) => setStepFields({ ...stepFields, commitmentsSigned: e.target.checked })}
-                              disabled={selectedProtocol.status === 'Cerrado'}
+                              id="stepCompleted"
+                              checked={stepCompleted}
+                              onChange={(e) => setStepCompleted(e.target.checked)}
                               className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary focus:ring-1 cursor-pointer"
                             />
-                            <label htmlFor="commitments" className="text-xs font-bold text-slate-650 cursor-pointer">
-                              ¿Firmaron carta de compromisos?
+                            <label htmlFor="stepCompleted" className="text-xs font-extrabold text-slate-800 cursor-pointer">
+                              Marcar esta etapa como COMPLETADA / APROBADA
                             </label>
                           </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Descripción detallada de la Medida/Sanción</label>
-                          <textarea
-                            placeholder="Describir las sanciones, amonestaciones escritas o intervenciones psicopedagógicas acordadas..."
-                            value={stepFields.resolutionDescription || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, resolutionDescription: e.target.value })}
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                            rows={3}
-                          />
-                        </div>
+                        )}
                       </div>
-                    )}
-
-                    {activeStepId === '5_followup' && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="flex items-center gap-2 pt-5">
-                            <input
-                              type="checkbox"
-                              id="referred"
-                              checked={stepFields.referredToDupla || false}
-                              onChange={(e) => setStepFields({ ...stepFields, referredToDupla: e.target.checked })}
-                              disabled={selectedProtocol.status === 'Cerrado'}
-                              className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary focus:ring-1 cursor-pointer"
-                            />
-                            <label htmlFor="referred" className="text-xs font-bold text-slate-650 cursor-pointer">
-                              ¿Derivar caso a Dupla Psicosocial?
-                            </label>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Próximo Seguimiento / Control</label>
-                            <div className="relative">
-                              <CalendarDays className="absolute left-3 top-2.5 h-4 w-4 text-slate-450" />
-                              <input
-                                type="date"
-                                value={stepFields.followupDate || ''}
-                                onChange={(e) => setStepFields({ ...stepFields, followupDate: e.target.value })}
-                                disabled={selectedProtocol.status === 'Cerrado'}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Resumen final de Cierre y Convivencia</label>
-                          <textarea
-                            placeholder="Redactar el balance final de la convivencia tras la aplicación de medidas y estado del alumno..."
-                            value={stepFields.finalReportSummary || ''}
-                            onChange={(e) => setStepFields({ ...stepFields, finalReportSummary: e.target.value })}
-                            disabled={selectedProtocol.status === 'Cerrado'}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Standard observations / bitacora notes */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-550 mb-1">Observaciones / Bitácora de esta Etapa</label>
-                      <textarea
-                        value={stepNotes}
-                        onChange={(e) => setStepNotes(e.target.value)}
-                        placeholder="Ingrese comentarios sobre el progreso, llamadas, dificultades o estados del proceso..."
-                        disabled={selectedProtocol.status === 'Cerrado'}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 font-sans"
-                        rows={3.5}
-                      />
                     </div>
 
-                    {/* Complete Step Checkbox */}
+                    {/* Bottom actions inside Drawer editor */}
                     {selectedProtocol.status === 'Abierto' && (
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                        <input
-                          type="checkbox"
-                          id="stepCompleted"
-                          checked={stepCompleted}
-                          onChange={(e) => setStepCompleted(e.target.checked)}
-                          className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary focus:ring-1 cursor-pointer"
-                        />
-                        <label htmlFor="stepCompleted" className="text-xs font-extrabold text-slate-800 cursor-pointer">
-                          Marcar esta etapa como COMPLETADA / APROBADA
-                        </label>
+                      <div className="mt-6 flex justify-end gap-3 shrink-0 pt-4 border-t border-slate-200 bg-white p-4 rounded-xl shadow-inner">
+                        <button
+                          onClick={() => handleSelectProtocol(selectedProtocol)}
+                          className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 text-slate-600 transition-all"
+                        >
+                          Descartar Cambios
+                        </button>
+                        <button
+                          onClick={handleSaveStep}
+                          className="px-5 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                        >
+                          Guardar Avance de Etapa
+                        </button>
                       </div>
                     )}
                   </div>
-                </div>
+                ) : (
+                  <div className="h-full flex flex-col justify-between">
+                    <div className="space-y-6">
+                      {/* Measures introduction card */}
+                      <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-sm space-y-1 animate-in fade-in">
+                        <h4 className="text-base font-extrabold text-slate-800">
+                          Medidas de Resguardo Mineduc (Circular 482)
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Decrete medidas de acompañamiento y resguardo inmediatas. Registre el cumplimiento diario de lunes a viernes para resguardar la legalidad de los procesos.
+                        </p>
+                      </div>
 
-                {/* Bottom actions inside Drawer editor */}
-                {selectedProtocol.status === 'Abierto' && (
-                  <div className="mt-6 flex justify-end gap-3 shrink-0 pt-4 border-t border-slate-200 bg-white p-4 rounded-xl shadow-inner">
-                    <button
-                      onClick={() => handleSelectProtocol(selectedProtocol)}
-                      className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 text-slate-600 transition-all"
-                    >
-                      Descartar Cambios
-                    </button>
-                    <button
-                      onClick={handleSaveStep}
-                      className="px-5 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
-                    >
-                      Guardar Avance de Etapa
-                    </button>
+                      {/* Register New Measure Form */}
+                      {selectedProtocol.status === 'Abierto' && (
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-3">
+                          <h5 className="text-xs font-bold text-slate-450 uppercase tracking-wider">Decretar Nueva Medida</h5>
+                          
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Descripción de la Medida</label>
+                            <input
+                              type="text"
+                              value={measureDesc}
+                              onChange={(e) => setMeasureDesc(e.target.value)}
+                              placeholder="Ej. Separación preventiva de patios en recreo"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Responsable de Vigilancia</label>
+                              <input
+                                type="text"
+                                value={measureResp}
+                                onChange={(e) => setMeasureResp(e.target.value)}
+                                placeholder="Ej. Docente de turno"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Vigencia (Inicio / Término)</label>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="date"
+                                  value={measureStart}
+                                  onChange={(e) => setMeasureStart(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-[10px] text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                                />
+                                <span className="text-slate-400 text-xs">a</span>
+                                <input
+                                  type="date"
+                                  value={measureEnd}
+                                  onChange={(e) => setMeasureEnd(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-[10px] text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end pt-2">
+                            <button
+                              onClick={handleAddMeasure}
+                              className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                            >
+                              Agregar Medida
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Compliance Log Grid */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
+                        <h5 className="text-xs font-bold text-slate-450 uppercase tracking-wider">
+                          Bitácora Semanal de Cumplimiento ({getWeekDays()[0].shortLabel} al {getWeekDays()[4].shortLabel})
+                        </h5>
+
+                        {(!selectedProtocol.measures || selectedProtocol.measures.length === 0) ? (
+                          <div className="text-center py-8 text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                            Registre una medida de resguardo arriba para comenzar el control semanal de cumplimiento.
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="text-[10px] font-bold text-slate-450 uppercase border-b border-slate-100">
+                                  <th className="py-2.5 pr-4">Medida Decretada</th>
+                                  {getWeekDays().map((d) => (
+                                    <th key={d.dateStr} className="py-2.5 text-center px-2 font-black">
+                                      <div>{d.dayName}</div>
+                                      <div className="text-[9px] text-slate-400 font-medium">{d.shortLabel}</div>
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {selectedProtocol.measures.map((m) => (
+                                  <tr key={m.id} className="hover:bg-slate-50/50">
+                                    <td className="py-3.5 pr-4 font-medium text-slate-750">
+                                      <div>{m.description}</div>
+                                      <div className="text-[10px] text-slate-400 mt-0.5">Resp: {m.responsibleName}</div>
+                                    </td>
+                                    {getWeekDays().map((d) => {
+                                      const isWithinRange = d.dateStr >= m.startDate && d.dateStr <= m.endDate;
+                                      const isChecked = m.complianceLog[d.dateStr] || false;
+
+                                      return (
+                                        <td key={d.dateStr} className="py-3.5 text-center px-2">
+                                          {isWithinRange ? (
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              disabled={selectedProtocol.status === 'Cerrado'}
+                                              onChange={(e) => handleToggleCompliance(m.id, d.dateStr, e.target.checked)}
+                                              className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 focus:ring-1 cursor-pointer"
+                                            />
+                                          ) : (
+                                            <span className="text-slate-300 font-mono">-</span>
+                                          )}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

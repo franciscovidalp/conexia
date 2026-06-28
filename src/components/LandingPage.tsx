@@ -173,9 +173,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
           </span>
         </h1>
 
-        {/* Sub-headline */}
         <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl leading-relaxed">
-          La plataforma definitiva para la dupla psicosocial, encargados de convivencia y directivos. Automatiza protocolos RICE, bitácoras confidenciales y la agenda en un solo lugar de manera amigable y colaborativa.
+          Ahorra cientos de horas de trabajo administrativo con la plataforma definitiva para duplas psicosociales, encargados de convivencia y directivos. Gestione encuestas DIA socioemocionales, visualice el mapa de clima de cada aula en tiempo real, vigile los plazos legales de protocolos RICE y controle el cumplimiento de medidas de resguardo Mineduc de forma automática.
         </p>
 
         {/* Call to Actions */}
@@ -344,11 +343,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
               </div>
               <h4 className="text-xl font-bold text-slate-800">Para la Dupla Psicosocial</h4>
               <p className="text-slate-600 text-sm mt-3 leading-relaxed">
-                Elimina las planillas sueltas y los archivadores. El equipo de psicólogos y trabajadores sociales registra de forma confidencial entrevistas, intervenciones con apoderados y derivaciones externas en un portal privado.
+                Elimina las planillas sueltas y ahorra horas de digitación. Registre de forma confidencial bitácoras de entrevistas individuales, derivaciones a redes comunales, y acceda al mapa del clima del curso para realizar intervenciones terapéuticas proactivas.
               </p>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs text-indigo-600 font-bold">
-              <span>Optimización terapéutica</span>
+              <span>Ahorro de horas terapéuticas</span>
               <CheckCircle2 size={14} />
             </div>
           </div>
@@ -361,11 +360,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
               </div>
               <h4 className="text-xl font-bold text-slate-800">Para Encargados de Convivencia</h4>
               <p className="text-slate-600 text-sm mt-3 leading-relaxed">
-                Automatiza el RICE. Registra de manera guiada cada evento menor, grave o gravísimo. La plataforma calcula de forma instantánea el semáforo conductual, notifica a directivos y genera el expediente formal PDF exigido por fiscalizaciones.
+                Debido proceso y resguardo legal automatizado. Vigile con semáforos inteligentes los plazos legales de RICE (Circular 482) y registre el cumplimiento diario de las Medidas de Resguardo, sirviendo de evidencia inmediata ante la Supereduc.
               </p>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs text-violet-600 font-bold">
-              <span>Seguimiento de normativas</span>
+              <span>Resguardo legal y compliance</span>
               <CheckCircle2 size={14} />
             </div>
           </div>
@@ -376,13 +375,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <FileSpreadsheet size={22} />
               </div>
-              <h4 className="text-xl font-bold text-slate-800">Para Directores y Sostenedores</h4>
+              <h4 className="text-xl font-bold text-slate-800">Para Directivos y Sostenedores</h4>
               <p className="text-slate-600 text-sm mt-3 leading-relaxed">
-                Visualización transversal del estado del establecimiento. Revisa índices de convivencia por curso en tiempo real, verifica el cumplimiento del calendario de talleres socioemocionales y toma decisiones basadas en estadísticas claras y consolidadas.
+                Control y toma de decisiones basadas en datos. Visualice el mapa de clima escolar de cada curso en tiempo real según Diagnóstico DIA, verifique el cumplimiento del Plan de Gestión y garantice la seguridad institucional con un solo clic.
               </p>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs text-emerald-600 font-bold">
-              <span>Control e indicadores globales</span>
+              <span>Dashboard de gestión escolar</span>
               <CheckCircle2 size={14} />
             </div>
           </div>
@@ -409,9 +408,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
                 <ShieldCheck size={24} />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-slate-800">Casos de Convivencia y RICE</h4>
+                <h4 className="text-lg font-bold text-slate-800">Casos RICE y Medidas de Resguardo</h4>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed font-medium">
-                  Ingreso categorizado de incidentes (Leve, Grave, Gravísima). Registro de medidas formativas inmediatas, firmas digitales del debido proceso y cálculo de semáforo de alerta conductual.
+                  Ingreso de incidentes y bitácora de cumplimiento semanal de Medidas de Resguardo Mineduc. Incorpora semáforos inteligentes de plazos legales para auditorías de la Superintendencia.
                 </p>
               </div>
             </div>
@@ -481,15 +480,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
               </div>
             </div>
 
-            {/* Feature 7: Diagnóstico Socioemocional DIA */}
+            {/* Feature 7: Diagnóstico DIA y Mapa de Clima */}
             <div className="bg-white border border-slate-250 p-6 rounded-2xl flex gap-4 hover:border-slate-350 hover:scale-[1.02] hover:shadow-md transition-all duration-300 shadow-sm">
               <div className="shrink-0 p-3 rounded-xl bg-violet-50 text-violet-650 w-12 h-12 flex items-center justify-center animate-zoom-in">
                 <BarChart3 size={24} />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-slate-800">Diagnóstico Socioemocional (DIA)</h4>
+                <h4 className="text-lg font-bold text-slate-800">Diagnóstico DIA y Mapa de Clima</h4>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed font-medium">
-                  Cuestionarios del clima de aula alineados con DIA Mineduc. Comparte enlaces públicos con estudiantes/apoderados para obtener reportes cualitativos con alertas de riesgo clínico automático.
+                  Cuestionarios alineados con DIA Mineduc. Obtenga reportes inmediatos y el mapa visual del clima escolar por aula para detectar riesgos clínicos y derivar al instante a la Dupla Psicosocial.
                 </p>
               </div>
             </div>

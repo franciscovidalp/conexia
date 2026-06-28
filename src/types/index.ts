@@ -1,6 +1,6 @@
 export type SchoolType = string;
 
-export type UserRole = 'Docente' | 'Convivencia' | 'Psicólogo' | 'Trabajador Social' | 'Director' | 'Administrador' | 'Orientador';
+export type UserRole = 'Docente' | 'Convivencia' | 'Psicólogo' | 'Trabajador Social' | 'Directivo' | 'Administrador' | 'Orientador';
 
 export interface School {
   id: string; // unique code/slug
@@ -167,6 +167,15 @@ export interface ProtocolStep {
   fields?: { [key: string]: any };
 }
 
+export interface RiceMeasure {
+  id: string;
+  description: string;
+  responsibleName: string;
+  startDate: string;
+  endDate: string;
+  complianceLog: { [dateStr: string]: boolean }; // e.g., { '2026-06-29': true, '2026-06-30': false }
+}
+
 export interface RiceProtocol {
   id: string;
   caseId?: string;
@@ -180,6 +189,7 @@ export interface RiceProtocol {
   startedAt: string;
   closedAt?: string;
   dueDate: string;
+  measures?: RiceMeasure[];
   createdAt: string;
 }
 
@@ -210,6 +220,25 @@ export interface ExternalReferral {
   observations?: string;
   professionalId: string;
   professionalName: string;
+  createdAt: string;
+}
+
+export interface ParentSummons {
+  id: string;
+  studentId: string;
+  studentName: string;
+  grade: string;
+  apoderadoName: string;
+  interviewerId: string;
+  interviewerName: string;
+  interviewerRole: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  location: string;
+  reason: string;
+  status: 'Pendiente' | 'Asistió' | 'No asistió';
+  notes?: string;
+  school: SchoolType;
   createdAt: string;
 }
 
