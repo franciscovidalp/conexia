@@ -1894,24 +1894,32 @@ export const dbService = {
       const clusterSize = Math.min(7, sociogramStudents.length - clusterStart);
       const clusterMember = (offset: number) => sociogramStudents[clusterStart + ((index - clusterStart + offset + clusterSize) % clusterSize)].id;
       const atRiskStudentId = sociogramStudents[34].id;
-      const positiveChoices = [...new Set([clusterMember(-1), clusterMember(1), clusterMember(2)])]
-        .filter(id => id !== student.id && id !== atRiskStudentId);
       const clusterCandidates = sociogramStudents
         .slice(clusterStart, clusterStart + clusterSize)
         .map(candidate => candidate.id)
         .filter(id => id !== student.id && id !== atRiskStudentId);
-      clusterCandidates.forEach(id => {
-        if (positiveChoices.length < 3 && !positiveChoices.includes(id)) positiveChoices.push(id);
-      });
+      const buildPositiveChoices = (direction: -1 | 1) => {
+        const choices = [...new Set([
+          sociogramStudents[clusterStart].id,
+          sociogramStudents[Math.min(clusterStart + 1, sociogramStudents.length - 1)].id,
+          clusterMember(direction)
+        ])].filter(id => id !== student.id && id !== atRiskStudentId);
+        clusterCandidates.forEach(id => {
+          if (choices.length < 3 && !choices.includes(id)) choices.push(id);
+        });
+        return choices;
+      };
+      const workChoices = buildPositiveChoices(1);
+      const playChoices = buildPositiveChoices(-1);
       const primaryRejected = atRiskStudentId === student.id ? sociogramStudents[33].id : atRiskStudentId;
       const leaderIndex = Math.min(clusterStart, sociogramStudents.length - 1);
       const leaderId = sociogramStudents[leaderIndex].id === student.id
         ? sociogramStudents[Math.min(leaderIndex + 1, sociogramStudents.length - 1)].id
         : sociogramStudents[leaderIndex].id;
       const responses = {
-        q1: positiveChoices.join(','),
+        q1: workChoices.join(','),
         q2: primaryRejected,
-        q3: [...positiveChoices].reverse().join(','),
+        q3: playChoices.join(','),
         q4: primaryRejected,
         q5: leaderId,
         q6: atRiskStudentId === student.id ? sociogramStudents[33].id : atRiskStudentId
