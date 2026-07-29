@@ -195,7 +195,7 @@ service cloud.firestore {
           'school', 'message', 'createdAt'
         ]) &&
         request.resource.data.senderId == getRut() &&
-        request.resource.data.school == getSchool() &&
+        (isAdmin() || request.resource.data.school == getSchool()) &&
         request.resource.data.message is string &&
         request.resource.data.message.size() > 0 &&
         request.resource.data.message.size() <= 4000;
@@ -217,7 +217,10 @@ service cloud.firestore {
     match /survey_answers/{answerId} {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
-      allow create: if validPublicSurveyAnswer(answerId);
+      allow create: if (
+        isAdmin() &&
+        belongsToSchool(request.resource.data.school)
+      ) || validPublicSurveyAnswer(answerId);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
@@ -239,7 +242,7 @@ service cloud.firestore {
         request.resource.data.expiresAt <= request.time.toMillis() + 604800000 &&
         request.resource.data.participants is list &&
         request.resource.data.participants.size() <= 100;
-      allow update: if false;
+      allow update: if isAdmin() && belongsToSchool(resource.data.school);
       allow delete: if isAdmin() || (
         isAuthenticated() && belongsToSchool(resource.data.school)
       );

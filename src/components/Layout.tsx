@@ -158,7 +158,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const menuItems = [
-    { id: 'climate', label: 'Diagnóstico y Sociometría', icon: BarChart3 },
+    { id: 'climate', label: 'Diagnósticos', icon: BarChart3 },
     { id: 'management', label: 'Plan de Gestión', icon: ClipboardList },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'calendar', label: 'Calendario', icon: CalendarRange },

@@ -94,6 +94,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('Todos');
   const [isClearingEnrollment, setIsClearingEnrollment] = useState(false);
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
   const grades = Array.from(new Set(students.map(s => s.grade))).sort();
 
@@ -351,6 +352,24 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       toast.error('No fue posible limpiar la matrícula. No vuelva a intentarlo sin revisar los permisos.');
     } finally {
       setIsClearingEnrollment(false);
+    }
+  };
+
+  const handleLoadDemoSchool = async () => {
+    if (activeSchool !== 'Colegio San Nicolás' || !loggedInUser) return;
+    if (!window.confirm(
+      'Se cargarán registros demostrativos en todos los módulos de Colegio San Nicolás. Los datos existentes no se eliminarán y los registros de muestra no se duplicarán.'
+    )) return;
+    setIsLoadingDemo(true);
+    try {
+      const count = await dbService.seedSanNicolasDemoData(loggedInUser);
+      await onEnrollmentCleared?.();
+      toast.success(`Colegio San Nicolás preparado como modelo: ${count} registros de muestra sincronizados.`);
+    } catch (error) {
+      console.error(error);
+      toast.error('No fue posible cargar los datos demostrativos.');
+    } finally {
+      setIsLoadingDemo(false);
     }
   };
 
@@ -665,6 +684,25 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <span>{isClearingEnrollment ? 'Limpiando matrícula…' : 'Limpiar matrícula del colegio'}</span>
                 </button>
               </div>
+
+              {activeSchool === 'Colegio San Nicolás' && (
+                <div className="bg-indigo-50 rounded-2xl border border-indigo-200 shadow-sm p-5 space-y-3">
+                  <h3 className="font-bold text-sm text-indigo-800 border-b border-indigo-200 pb-3">
+                    Colegio modelo de demostración
+                  </h3>
+                  <p className="text-xs text-indigo-700 leading-relaxed">
+                    Carga información coherente y reutilizable en matrícula, convivencia, RICE, dupla psicosocial, diagnósticos, actividades, calendario, plan de gestión, derivaciones, citaciones y mensajería.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleLoadDemoSchool}
+                    disabled={isLoadingDemo}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    {isLoadingDemo ? 'Cargando datos…' : 'Cargar datos de demostración'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

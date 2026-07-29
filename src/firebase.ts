@@ -1682,6 +1682,172 @@ export const dbService = {
     saveLocalData('parent_summons', filtered);
   },
 
+  async seedSanNicolasDemoData(actor: Staff): Promise<number> {
+    const school = 'Colegio San Nicolás';
+    const now = new Date().toISOString();
+    const students: Student[] = [
+      { id: '19.230.450-K', rut: '19.230.450-K', firstName: 'Diego', lastName: 'Valenzuela Jara', school, grade: '1° Medio A', conductScore: 88, email: 'diego.valenzuela@sannicolas.cl', parentName: 'Claudia Jara', parentPhone: '+56 9 6111 2201' },
+      { id: '20.114.892-2', rut: '20.114.892-2', firstName: 'Martina', lastName: 'Soto Villagrán', school, grade: '1° Medio A', conductScore: 96, email: 'martina.soto@sannicolas.cl', parentName: 'Marcela Villagrán', parentPhone: '+56 9 6222 3402' },
+      { id: '20.455.918-4', rut: '20.455.918-4', firstName: 'Sebastián', lastName: 'Pérez Muñoz', school, grade: '2° Medio B', conductScore: 70, email: 'sebastian.perez@sannicolas.cl', parentName: 'Carolina Muñoz', parentPhone: '+56 9 6333 4503' },
+      { id: '21.002.394-1', rut: '21.002.394-1', firstName: 'Valentina', lastName: 'Rojas Gatica', school, grade: '2° Medio B', conductScore: 82, email: 'valentina.rojas@sannicolas.cl', parentName: 'Patricio Rojas', parentPhone: '+56 9 6444 5604' },
+      { id: '21.564.912-3', rut: '21.564.912-3', firstName: 'Benjamín', lastName: 'Cortés Salinas', school, grade: '3° Medio A', conductScore: 55, email: 'benjamin.cortes@sannicolas.cl', parentName: 'Andrea Salinas', parentPhone: '+56 9 6555 6705' },
+      { id: '22.122.344-9', rut: '22.122.344-9', firstName: 'Antonia', lastName: 'Fuentes Riquelme', school, grade: '3° Medio A', conductScore: 100, email: 'antonia.fuentes@sannicolas.cl', parentName: 'Jorge Fuentes', parentPhone: '+56 9 6666 7806' }
+    ];
+    const records: Array<{ collectionName: string; id: string; data: Record<string, unknown> }> = [
+      ...students.map(student => ({ collectionName: 'students', id: student.id, data: student as unknown as Record<string, unknown> })),
+      {
+        collectionName: 'coexistence_cases', id: 'demo-sn-case-positive', data: {
+          id: 'demo-sn-case-positive', studentId: '22.122.344-9', studentName: 'Antonia Fuentes Riquelme',
+          school, date: '2026-07-22', type: 'Positiva', description: 'Lidera una iniciativa de bienvenida e integración para estudiantes nuevos del nivel.',
+          reporterId: '12.441.902-8', reporterName: 'Carlos Mendoza Allende', protocolActivated: false,
+          referredToPsychosocial: false, actionPlan: 'Reconocimiento en consejo de curso y registro de la acción como práctica positiva.',
+          commitments: 'Continuar apoyando actividades de buen trato.', status: 'Resuelto', createdAt: '2026-07-22T13:15:00.000Z'
+        }
+      },
+      {
+        collectionName: 'coexistence_cases', id: 'demo-sn-case-followup', data: {
+          id: 'demo-sn-case-followup', studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz',
+          school, date: '2026-07-18', type: 'Grave', description: 'Conflicto verbal reiterado durante trabajo colaborativo, con desregulación emocional.',
+          reporterId: '16.441.229-3', reporterName: 'Patricia Venegas Soto', protocolActivated: true,
+          protocolName: 'Violencia Escolar', referredToPsychosocial: true,
+          actionPlan: 'Entrevista individual, citación de apoderado y acompañamiento semanal durante un mes.',
+          commitments: 'Aplicar pausa de autorregulación y participar en mediación.', status: 'En Proceso', createdAt: '2026-07-18T10:30:00.000Z'
+        }
+      },
+      {
+        collectionName: 'activities', id: 'demo-sn-activity-buentrato', data: {
+          id: 'demo-sn-activity-buentrato', title: 'Taller de buen trato y resolución colaborativa',
+          date: '2026-08-05', speaker: 'María Paz Toledo Bascuñán', location: 'Biblioteca',
+          status: 'Programada', audienceType: 'Masiva', targetGrades: ['1° Medio A', '2° Medio B'],
+          summary: 'Actividad preventiva basada en comunicación asertiva, empatía y reparación.', school, createdAt: now
+        }
+      },
+      {
+        collectionName: 'activities', id: 'demo-sn-activity-ciber', data: {
+          id: 'demo-sn-activity-ciber', title: 'Prevención del ciberacoso y ciudadanía digital',
+          date: '2026-07-10', speaker: 'Equipo de Convivencia Educativa', location: 'Sala audiovisual',
+          status: 'Realizada', audienceType: 'Focalizada', targetStudentIds: ['20.455.918-4', '21.002.394-1', '21.564.912-3'],
+          summary: 'Se revisaron rutas de ayuda, privacidad digital y rol de observadores activos.', school, createdAt: now
+        }
+      },
+      {
+        collectionName: 'psychosocial_cases', id: 'demo-sn-psy-sebastian', data: {
+          id: 'demo-sn-psy-sebastian', studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz',
+          grade: '2° Medio B', school, status: 'En Intervención', referredDate: '2026-07-18',
+          reason: 'Derivación desde Convivencia Educativa por desregulación emocional y conflicto reiterado.',
+          riskLevel: 'Medio', createdAt: '2026-07-18T11:00:00.000Z'
+        }
+      },
+      {
+        collectionName: 'clinical_sessions', id: 'demo-sn-session-1', data: {
+          id: 'demo-sn-session-1', caseId: 'demo-sn-psy-sebastian', date: '2026-07-21',
+          contactType: 'Estudiante', notes: 'Entrevista de acogida. Se identifican detonantes y recursos personales de regulación.',
+          agreements: 'Registrar emociones durante una semana y solicitar pausa cuando detecte escalada.',
+          professionalId: '14.230.119-K', professionalName: 'María Paz Toledo Bascuñán',
+          createdAt: '2026-07-21T12:00:00.000Z'
+        }
+      },
+      {
+        collectionName: 'rice_protocols', id: 'demo-sn-rice-1', data: {
+          id: 'demo-sn-rice-1', caseId: 'demo-sn-case-followup', studentId: '20.455.918-4',
+          studentName: 'Sebastián Pérez Muñoz', grade: '2° Medio B', school,
+          protocolType: 'Violencia Escolar', status: 'Abierto', startedAt: '2026-07-18',
+          dueDate: '2026-08-01', createdAt: '2026-07-18T10:45:00.000Z',
+          steps: [
+            { id: 'detection', name: 'Detección y Registro', description: 'Registro del incidente y medidas inmediatas.', status: 'Completado', completedAt: '2026-07-18', completedBy: 'Carlos Mendoza Allende', notes: 'Se separa a los involucrados y se brinda contención.' },
+            { id: 'notification', name: 'Notificación', description: 'Comunicación con apoderados.', status: 'Completado', completedAt: '2026-07-18', completedBy: 'Carlos Mendoza Allende' },
+            { id: 'investigation', name: 'Investigación', description: 'Entrevistas y recopilación de antecedentes.', status: 'En Proceso' },
+            { id: 'resolution', name: 'Resolución', description: 'Medidas formativas y disciplinarias.', status: 'Pendiente' },
+            { id: 'followup', name: 'Seguimiento', description: 'Monitoreo y cierre.', status: 'Pendiente' }
+          ],
+          measures: [{ id: 'demo-measure-1', description: 'Acompañamiento en recreos y entrevista semanal.', responsibleName: 'María Paz Toledo', startDate: '2026-07-21', endDate: '2026-08-14', complianceLog: { '2026-07-21': true, '2026-07-22': true } }]
+        }
+      },
+      {
+        collectionName: 'objectives', id: 'demo-sn-objective-1', data: {
+          id: 'demo-sn-objective-1', title: 'Fortalecer el buen trato y la participación estudiantil',
+          category: 'Prevención', target: '1° a 3° Medio',
+          description: 'Implementar actividades preventivas y espacios de participación para mejorar el clima de aula.',
+          status: 'En Proceso', associatedActivityIds: ['demo-sn-activity-buentrato', 'demo-sn-activity-ciber'],
+          school, createdAt: '2026-03-05T09:00:00.000Z'
+        }
+      },
+      {
+        collectionName: 'referrals', id: 'demo-sn-referral-1', data: {
+          id: 'demo-sn-referral-1', studentId: '21.564.912-3', studentName: 'Benjamín Cortés Salinas',
+          grade: '3° Medio A', school, institution: 'CESFAM',
+          reason: 'Solicitud de evaluación complementaria por síntomas ansiosos persistentes.',
+          previousMeasures: 'Entrevistas con estudiante y apoderado, seguimiento de profesor jefe y apoyo psicosocial.',
+          status: 'En Revisión', sentDate: '2026-07-15', folioNumber: 'SN-CESFAM-2026-014',
+          observations: 'Familia informada y de acuerdo con la derivación.', professionalId: '14.230.119-K',
+          professionalName: 'María Paz Toledo Bascuñán', createdAt: '2026-07-15T10:00:00.000Z'
+        }
+      },
+      {
+        collectionName: 'parent_summons', id: 'demo-sn-summons-1', data: {
+          id: 'demo-sn-summons-1', studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz',
+          grade: '2° Medio B', apoderadoName: 'Carolina Muñoz', interviewerId: '12.441.902-8',
+          interviewerName: 'Carlos Mendoza Allende', interviewerRole: 'Convivencia', date: '2026-07-24',
+          time: '09:30', location: 'Oficina de Convivencia Educativa',
+          reason: 'Revisión de medidas de apoyo y acuerdos de acompañamiento.', status: 'Asistió',
+          notes: 'Apoderada acuerda reforzar rutinas y mantener comunicación semanal.', school, createdAt: now
+        }
+      },
+      {
+        collectionName: 'meetings', id: 'demo-sn-meeting-1', data: {
+          id: 'demo-sn-meeting-1', title: 'Consejo de seguimiento de casos',
+          date: '2026-08-03', time: '16:00', type: 'Reunión Técnica',
+          description: 'Revisión interdisciplinaria de apoyos, plazos RICE y derivaciones activas.',
+          school, createdAt: now
+        }
+      }
+    ];
+    const accessToken = 'demo-sn-diagnostic-access';
+    records.push({
+      collectionName: 'survey_access', id: accessToken, data: {
+        id: accessToken, surveyId: 'dia-clima-aula', school, grade: '2° Medio B',
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, createdBy: actor.id,
+        participants: students.filter(student => student.grade === '2° Medio B').map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
+      }
+    });
+    const diagnosticResponses = [
+      { studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz', values: [3, 4, 3, 3, 4, 4, 3, 3, 4, 4], score: 3.5, riskStatus: 'Medio' },
+      { studentId: '21.002.394-1', studentName: 'Valentina Rojas Gatica', values: [4, 5, 4, 4, 4, 5, 4, 4, 4, 5], score: 4.3, riskStatus: 'Bajo' }
+    ];
+    diagnosticResponses.forEach((response, index) => {
+      records.push({
+        collectionName: 'survey_answers', id: `demo-sn-answer-${index + 1}`, data: {
+          id: `demo-sn-answer-${index + 1}`, accessToken, surveyId: 'dia-clima-aula',
+          studentId: response.studentId, studentName: response.studentName, grade: '2° Medio B', school,
+          responses: Object.fromEntries(response.values.map((value, valueIndex) => [`q${valueIndex + 1}`, value])),
+          score: response.score, riskStatus: response.riskStatus, submittedAt: now
+        }
+      });
+    });
+    records.push({
+      collectionName: 'messages', id: 'demo-sn-message-admin', data: {
+        id: 'demo-sn-message-admin', senderId: actor.rut, senderName: `${actor.firstName} ${actor.lastName}`,
+        recipientId: '12.441.902-8', recipientName: 'Carlos Mendoza Allende', school,
+        message: 'Mensaje demostrativo: revisar avances del plan preventivo y los acuerdos de seguimiento.',
+        createdAt: now
+      }
+    });
+
+    if (!useMock && db) {
+      for (let offset = 0; offset < records.length; offset += 450) {
+        const batch = writeBatch(db);
+        records.slice(offset, offset + 450).forEach(record => {
+          batch.set(doc(db, record.collectionName, record.id), record.data);
+        });
+        await batch.commit();
+      }
+      invalidateStudentCache(school);
+      return records.length;
+    }
+
+    throw new Error('La carga demostrativa está disponible únicamente con Firebase conectado.');
+  },
+
   async clearSchoolEnrollmentData(school: SchoolType): Promise<{ deleted: number; updatedActivities: number }> {
     if (!school.trim()) throw new Error('Debe seleccionar un establecimiento.');
 
