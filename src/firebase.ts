@@ -1699,6 +1699,33 @@ export const dbService = {
       { id: '21.564.912-3', rut: '21.564.912-3', firstName: 'Benjamín', lastName: 'Cortés Salinas', school, grade: '3° Medio A', conductScore: 55, email: 'benjamin.cortes@sannicolas.cl', parentName: 'Andrea Salinas', parentPhone: '+56 9 6555 6705' },
       { id: '22.122.344-9', rut: '22.122.344-9', firstName: 'Antonia', lastName: 'Fuentes Riquelme', school, grade: '3° Medio A', conductScore: 100, email: 'antonia.fuentes@sannicolas.cl', parentName: 'Jorge Fuentes', parentPhone: '+56 9 6666 7806' }
     ];
+    const additionalCourseNames = [
+      ['Agustina', 'Morales Silva'], ['Vicente', 'Contreras Díaz'], ['Josefa', 'Henríquez Soto'],
+      ['Joaquín', 'Salazar Muñoz'], ['Amanda', 'Vega Arriagada'], ['Martín', 'Cáceres Rojas'],
+      ['Florencia', 'Bustamante Reyes'], ['Gaspar', 'Sandoval Leiva'], ['Trinidad', 'Figueroa Peña'],
+      ['Benicio', 'Espinoza Torres'], ['Catalina', 'Pino Valdés'], ['Máximo', 'González Vera'],
+      ['Renata', 'Alarcón Medina'], ['Santiago', 'Parra Fuentes'], ['Julieta', 'Navarrete Castro'],
+      ['Alonso', 'Rivera Saavedra'], ['Dominga', 'Vargas Cid'], ['Facundo', 'Campos Ulloa'],
+      ['Antonella', 'Bravo Tapia'], ['Bautista', 'Méndez Jara'], ['Maite', 'Cifuentes Lagos'],
+      ['León', 'Miranda Ortiz'], ['Rafaela', 'Godoy Palma'], ['Dante', 'Molina Araya'],
+      ['Sofía', 'Valdés Carrasco'], ['Nicolás', 'Reyes Sanhueza'], ['Laura', 'Silva Sepúlveda']
+    ];
+    additionalCourseNames.forEach(([firstName, lastName], index) => {
+      const serial = String(index + 1).padStart(3, '0');
+      const rut = `30.000.${serial}-${(index + 1) % 10}`;
+      students.push({
+        id: rut,
+        rut,
+        firstName,
+        lastName,
+        school,
+        grade: '2° Medio B',
+        conductScore: 72 + ((index * 7) % 27),
+        email: `${firstName.toLowerCase()}.${lastName.split(' ')[0].toLowerCase()}${index + 1}@sannicolas.cl`,
+        parentName: `Apoderado de ${firstName}`,
+        parentPhone: `+56 9 73${String(index + 1).padStart(2, '0')} 55${String(index + 10).padStart(2, '0')}`
+      });
+    });
     const records: Array<{ collectionName: string; id: string; data: Record<string, unknown> }> = [
       ...students.map(student => ({ collectionName: 'students', id: student.id, data: student as unknown as Record<string, unknown> })),
       {
@@ -1808,30 +1835,53 @@ export const dbService = {
         }
       }
     ];
-    const accessToken = 'demo-sn-diagnostic-access';
-    records.push({
-      collectionName: 'survey_access', id: accessToken, data: {
-        id: accessToken, surveyId: 'dia-clima-aula', school, grade: '2° Medio B',
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, createdBy: actor.id,
-        participants: students.filter(student => student.grade === '2° Medio B').map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
-      }
-    });
-    const diagnosticResponses = [
-      { studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz', values: [3, 4, 3, 3, 4, 4, 3, 3, 4, 4], score: 3.5, riskStatus: 'Medio' },
-      { studentId: '21.002.394-1', studentName: 'Valentina Rojas Gatica', values: [4, 5, 4, 4, 4, 5, 4, 4, 4, 5], score: 4.3, riskStatus: 'Bajo' }
+    const sociogramStudents = students.filter(student => student.grade === '2° Medio B');
+    const surveyIds = [
+      'dia-clima-aula',
+      'dia-bienestar-autoestima',
+      'dia-relaciones-bullying',
+      'dia-vinculo-familia',
+      'convivencia-rice',
+      'resolucion-conflictos'
     ];
-    diagnosticResponses.forEach((response, index) => {
+    surveyIds.forEach((surveyId, surveyIndex) => {
+      const accessToken = surveyId === 'dia-clima-aula'
+        ? 'demo-sn-diagnostic-access'
+        : `demo-sn-${surveyId}-access`;
       records.push({
-        collectionName: 'survey_answers', id: `demo-sn-answer-${index + 1}`, data: {
-          id: `demo-sn-answer-${index + 1}`, accessToken, surveyId: 'dia-clima-aula',
-          studentId: response.studentId, studentName: response.studentName, grade: '2° Medio B', school,
-          responses: Object.fromEntries(response.values.map((value, valueIndex) => [`q${valueIndex + 1}`, value])),
-          score: response.score, riskStatus: response.riskStatus, submittedAt: now
+        collectionName: 'survey_access', id: accessToken, data: {
+          id: accessToken, surveyId, school, grade: '2° Medio B',
+          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, createdBy: actor.id,
+          participants: sociogramStudents.map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
         }
       });
+
+      sociogramStudents.forEach((student, studentIndex) => {
+        const normalizedValues = Array.from({ length: 10 }, (_, questionIndex) => {
+          const riskBase = studentIndex < 4 ? 2 : studentIndex < 10 ? 3 : studentIndex < 25 ? 4 : 5;
+          const variation = ((studentIndex + questionIndex * 2 + surveyIndex) % 3) - 1;
+          return Math.max(1, Math.min(5, riskBase + variation));
+        });
+        const rawValues = normalizedValues.map((value, questionIndex) =>
+          surveyId === 'dia-relaciones-bullying' && questionIndex === 4 ? 6 - value : value
+        );
+        const score = Number((normalizedValues.reduce((sum, value) => sum + value, 0) / normalizedValues.length).toFixed(1));
+        const riskStatus = score < 2.5 ? 'Crítico' : score < 3.2 ? 'Alto' : score < 4 ? 'Medio' : 'Bajo';
+        const answerId = surveyId === 'dia-clima-aula'
+          ? `demo-sn-answer-${studentIndex + 1}`
+          : `demo-sn-${surveyId}-answer-${studentIndex + 1}`;
+        records.push({
+          collectionName: 'survey_answers', id: answerId, data: {
+            id: answerId, accessToken, surveyId, studentId: student.id,
+            studentName: `${student.firstName} ${student.lastName}`, grade: '2° Medio B', school,
+            responses: Object.fromEntries(rawValues.map((value, valueIndex) => [`q${valueIndex + 1}`, value])),
+            score, riskStatus, submittedAt: now
+          }
+        });
+      });
     });
+
     const sociogramAccessToken = 'demo-sn-sociogram-access';
-    const sociogramStudents = students.filter(student => student.grade === '2° Medio B');
     records.push({
       collectionName: 'survey_access', id: sociogramAccessToken, data: {
         id: sociogramAccessToken, surveyId: 'dia-sociograma', school, grade: '2° Medio B',
@@ -1839,46 +1889,31 @@ export const dbService = {
         participants: sociogramStudents.map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
       }
     });
-    const sociogramResponses = [
-      {
-        studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz',
-        responses: { q1: '21.002.394-1,22.555.632-8', q2: '22.777.854-9', q3: '22.555.632-8,22.444.521-2', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
-      },
-      {
-        studentId: '21.002.394-1', studentName: 'Valentina Rojas Gatica',
-        responses: { q1: '22.333.410-7,22.666.743-3,20.455.918-4', q2: '22.777.854-9', q3: '22.333.410-7,22.888.965-4,22.666.743-3', q4: '22.777.854-9', q5: '22.333.410-7', q6: '22.444.521-2' }
-      },
-      {
-        studentId: '22.333.410-7', studentName: 'Emilia Navarro Leiva',
-        responses: { q1: '21.002.394-1,22.666.743-3,22.888.965-4', q2: '22.777.854-9', q3: '21.002.394-1,22.888.965-4,22.666.743-3', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
-      },
-      {
-        studentId: '22.444.521-2', studentName: 'Mateo Araya Contreras',
-        responses: { q1: '20.455.918-4,22.555.632-8', q2: '22.777.854-9', q3: '20.455.918-4,22.555.632-8', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.777.854-9' }
-      },
-      {
-        studentId: '22.555.632-8', studentName: 'Lucas Sepúlveda Ortiz',
-        responses: { q1: '20.455.918-4,21.002.394-1,22.444.521-2', q2: '22.777.854-9', q3: '20.455.918-4,22.444.521-2,22.888.965-4', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
-      },
-      {
-        studentId: '22.666.743-3', studentName: 'Isidora Mella Sanhueza',
-        responses: { q1: '21.002.394-1,22.333.410-7,22.888.965-4', q2: '22.777.854-9', q3: '21.002.394-1,22.333.410-7,22.888.965-4', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
-      },
-      {
-        studentId: '22.777.854-9', studentName: 'Tomás Carrasco Peña',
-        responses: { q1: '22.444.521-2,20.455.918-4', q2: '21.002.394-1', q3: '22.444.521-2,20.455.918-4', q4: '21.002.394-1', q5: '20.455.918-4', q6: '22.444.521-2' }
-      },
-      {
-        studentId: '22.888.965-4', studentName: 'Fernanda Lagos Vidal',
-        responses: { q1: '22.333.410-7,21.002.394-1,22.666.743-3', q2: '22.777.854-9', q3: '22.333.410-7,21.002.394-1,22.666.743-3', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
-      }
-    ];
-    sociogramResponses.forEach((response, index) => {
+    sociogramStudents.forEach((student, index) => {
+      const clusterStart = Math.floor(index / 7) * 7;
+      const clusterSize = Math.min(7, sociogramStudents.length - clusterStart);
+      const clusterMember = (offset: number) => sociogramStudents[clusterStart + ((index - clusterStart + offset + clusterSize) % clusterSize)].id;
+      const positiveChoices = [clusterMember(-1), clusterMember(1), clusterMember(2)]
+        .filter((id, choiceIndex, ids) => id !== student.id && ids.indexOf(id) === choiceIndex);
+      const primaryRejected = sociogramStudents[34].id === student.id ? sociogramStudents[33].id : sociogramStudents[34].id;
+      const leaderIndex = Math.min(clusterStart, sociogramStudents.length - 1);
+      const leaderId = sociogramStudents[leaderIndex].id === student.id
+        ? sociogramStudents[Math.min(leaderIndex + 1, sociogramStudents.length - 1)].id
+        : sociogramStudents[leaderIndex].id;
+      const responses = {
+        q1: positiveChoices.join(','),
+        q2: primaryRejected,
+        q3: [...positiveChoices].reverse().join(','),
+        q4: primaryRejected,
+        q5: leaderId,
+        q6: sociogramStudents[34].id === student.id ? sociogramStudents[33].id : sociogramStudents[34].id
+      };
+      const answerId = `demo-sn-sociogram-answer-${index + 1}`;
       records.push({
-        collectionName: 'survey_answers', id: `demo-sn-sociogram-answer-${index + 1}`, data: {
-          id: `demo-sn-sociogram-answer-${index + 1}`, accessToken: sociogramAccessToken,
-          surveyId: 'dia-sociograma', studentId: response.studentId, studentName: response.studentName,
-          grade: '2° Medio B', school, responses: response.responses, score: 0,
+        collectionName: 'survey_answers', id: answerId, data: {
+          id: answerId, accessToken: sociogramAccessToken,
+          surveyId: 'dia-sociograma', studentId: student.id, studentName: `${student.firstName} ${student.lastName}`,
+          grade: '2° Medio B', school, responses, score: 0,
           riskStatus: 'Bajo', submittedAt: now
         }
       });
