@@ -235,7 +235,10 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
     if (responses.length === 0) return null;
     
     // Sort dimensions by score
-    const sortedStats = [...categoryStats].sort((a, b) => b.percentage - a.percentage);
+    const sortedStats = categoryStats
+      .filter(stat => stat.count > 0)
+      .sort((a, b) => b.percentage - a.percentage);
+    if (sortedStats.length === 0) return null;
     const strongDim = sortedStats[0];
     const criticalDim = sortedStats[sortedStats.length - 1];
 
@@ -1190,7 +1193,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
               </div>
 
               <div className="space-y-4">
-                {categoryStats.map(stat => (
+                {categoryStats.filter(stat => stat.count > 0).map(stat => (
                   <div key={stat.category} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-semibold">
                       <span className="text-slate-700">{stat.category}</span>
