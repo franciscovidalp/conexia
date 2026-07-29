@@ -325,7 +325,10 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
 
   // Sociogram Math Calculations
   const courseStudents = students.filter(s => s.school === activeSchool && s.grade === selectedCourse);
-  const roster = courseStudents.length > 0 ? courseStudents : Array.from(new Set(responses.map(r => r.studentId))).map(id => {
+  const courseStudentIds = new Set(courseStudents.map(student => student.id));
+  const missingRespondents = Array.from(new Set(responses.map(r => r.studentId)))
+    .filter(id => !courseStudentIds.has(id))
+    .map(id => {
     const r = responses.find(resp => resp.studentId === id);
     return {
       id,
@@ -337,6 +340,9 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
       conductScore: 100
     };
   });
+  // Merge the live enrollment with respondents so an outdated client-side
+  // roster can never collapse a 35-answer sociogram into only a few nodes.
+  const roster = [...courseStudents, ...missingRespondents];
 
   const getAnswersList = (ansObj: any, qId: string) => {
     if (!ansObj) return [];

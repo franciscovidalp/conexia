@@ -136,7 +136,7 @@ function App() {
   }, [activeSchool, loggedInUser]);
 
   const refreshStudentsState = async () => {
-    const dbStudents = await dbService.getStudents(activeSchool);
+    const dbStudents = await dbService.getStudents(activeSchool, true);
     setStudents(dbStudents);
   };
 

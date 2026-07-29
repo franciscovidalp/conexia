@@ -24,7 +24,7 @@ interface SettingsModuleProps {
   schools: School[];
   onRefreshSchools: () => void;
   students: Student[];
-  onRefreshStudents: () => void;
+  onRefreshStudents: () => Promise<void> | void;
   onEnrollmentCleared?: () => Promise<void> | void;
   onRefreshStaff?: () => void;
   activeTheme: ColorTheme;
@@ -364,6 +364,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     try {
       const count = await dbService.seedSanNicolasDemoData(loggedInUser);
       await onEnrollmentCleared?.();
+      await onRefreshStudents();
       toast.success(`Colegio San Nicolás preparado como modelo: ${count} registros de muestra sincronizados.`);
     } catch (error) {
       console.error(error);
