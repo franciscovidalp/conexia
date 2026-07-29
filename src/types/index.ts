@@ -31,7 +31,6 @@ export interface Staff {
   school: SchoolType;
   role: UserRole;
   email: string;
-  password?: string;
 }
 
 export type CaseType = 'Positiva' | 'Leve' | 'Grave' | 'Gravísima';
@@ -145,6 +144,7 @@ export interface SurveyQuestion {
 
 export interface SurveyAnswer {
   id: string;
+  accessToken: string;
   surveyId: string;
   studentId: string;
   studentName: string;
@@ -154,6 +154,20 @@ export interface SurveyAnswer {
   score: number; // 0 to 100
   riskStatus: 'Bajo' | 'Medio' | 'Alto' | 'Crítico';
   submittedAt: string;
+}
+
+export interface SurveyAccess {
+  id: string;
+  surveyId: string;
+  school: SchoolType;
+  grade: string;
+  expiresAt: number;
+  createdBy: string;
+  participants: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+  }>;
 }
 
 export interface ProtocolStep {
@@ -241,5 +255,3 @@ export interface ParentSummons {
   school: SchoolType;
   createdAt: string;
 }
-
-

@@ -9,7 +9,8 @@ import {
   X,
   Search,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Trash2
 } from 'lucide-react';
 import { dbService } from '../firebase';
 import type { School, Student, SchoolType, Staff, UserRole } from '../types';
@@ -24,6 +25,7 @@ interface SettingsModuleProps {
   onRefreshSchools: () => void;
   students: Student[];
   onRefreshStudents: () => void;
+  onEnrollmentCleared?: () => Promise<void> | void;
   onRefreshStaff?: () => void;
   activeTheme: ColorTheme;
   setActiveTheme: (theme: ColorTheme) => void;
@@ -36,6 +38,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onRefreshSchools,
   students,
   onRefreshStudents,
+  onEnrollmentCleared,
   onRefreshStaff,
   activeTheme,
   setActiveTheme,
@@ -83,7 +86,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [staffEmail, setStaffEmail] = useState('');
   const [staffRole, setStaffRole] = useState<UserRole>('Docente');
   const [staffSchool, setStaffSchool] = useState<SchoolType>('');
-  const [staffPassword, setStaffPassword] = useState('');
 
   // CSV parsing state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -91,6 +93,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   // Student search filters
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('Todos');
+  const [isClearingEnrollment, setIsClearingEnrollment] = useState(false);
 
   const grades = Array.from(new Set(students.map(s => s.grade))).sort();
 
@@ -246,7 +249,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       setStaffEmail(st.email);
       setStaffRole(st.role);
       setStaffSchool(st.school);
-      setStaffPassword(st.password || '');
     } else {
       setEditingStaff(null);
       setStaffRut('');
@@ -255,7 +257,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       setStaffEmail('');
       setStaffRole('Docente');
       setStaffSchool(schools.length > 0 ? schools[0].name : activeSchool);
-      setStaffPassword('');
     }
     setIsStaffModalOpen(true);
   };
@@ -274,8 +275,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         lastName: staffLastName.trim(),
         email: staffEmail.trim(),
         role: staffRole,
-        school: staffSchool,
-        password: staffPassword.trim() || undefined
+        school: staffSchool
       };
 
       if (editingStaff) {
@@ -323,6 +323,34 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           toast.error('Error al limpiar base de datos.');
         }
       }
+    }
+  };
+
+  const handleClearSchoolEnrollment = async () => {
+    const typedSchool = window.prompt(
+      `Esta acción borrará la matrícula y todos los expedientes asociados al alumnado de "${activeSchool}".\n\nEscriba exactamente el nombre del establecimiento para continuar:`
+    );
+    if (typedSchool !== activeSchool) {
+      if (typedSchool !== null) toast.error('El nombre no coincide. No se eliminó información.');
+      return;
+    }
+    if (!window.confirm(
+      `Última confirmación: se eliminarán estudiantes, anotaciones, protocolos, casos psicosociales, sesiones, sociometrías, derivaciones y citaciones de ${activeSchool}. El colegio y sus funcionarios se conservarán.`
+    )) return;
+
+    setIsClearingEnrollment(true);
+    try {
+      const result = await dbService.clearSchoolEnrollmentData(activeSchool);
+      await onEnrollmentCleared?.();
+      toast.success(
+        `Matrícula reiniciada: ${result.deleted} registros eliminados` +
+        (result.updatedActivities ? ` y ${result.updatedActivities} actividades desvinculadas.` : '.')
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error('No fue posible limpiar la matrícula. No vuelva a intentarlo sin revisar los permisos.');
+    } finally {
+      setIsClearingEnrollment(false);
     }
   };
 
@@ -616,6 +644,25 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Inscribir Alumno
+                </button>
+              </div>
+
+              <div className="bg-red-50 rounded-2xl border border-red-200 shadow-sm p-5 space-y-3">
+                <h3 className="font-bold text-sm text-red-800 flex items-center gap-1.5 border-b border-red-200 pb-3">
+                  <Trash2 size={18} />
+                  <span>Reiniciar matrícula</span>
+                </h3>
+                <p className="text-xs text-red-700 leading-relaxed">
+                  Deja <strong>{activeSchool}</strong> sin estudiantes ni antecedentes asociados para comenzar una carga real desde cero. Conserva el establecimiento, funcionarios, configuración y plan general.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleClearSchoolEnrollment}
+                  disabled={isClearingEnrollment}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={14} />
+                  <span>{isClearingEnrollment ? 'Limpiando matrícula…' : 'Limpiar matrícula del colegio'}</span>
                 </button>
               </div>
             </div>
@@ -1108,15 +1155,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-500 uppercase mb-1">Contraseña de Acceso</label>
-                <input
-                  type="text"
-                  value={staffPassword}
-                  onChange={(e) => setStaffPassword(e.target.value)}
-                  placeholder="Dejar vacío para usar RUT o default"
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
-                />
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-[11px] leading-relaxed text-indigo-800">
+                Las contraseñas no se almacenan en CONEXIA. El acceso debe crearse o restablecerse mediante Firebase Authentication por una persona administradora autorizada.
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

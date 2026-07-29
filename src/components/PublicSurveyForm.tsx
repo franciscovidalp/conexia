@@ -14,7 +14,8 @@ import { SURVEY_TEMPLATES } from '../lib/surveyTemplates';
 import toast from 'react-hot-toast';
 
 interface PublicSurveyFormProps {
-  surveyId: string;
+  surveyId: string | null;
+  surveyToken: string | null;
   schoolName: string;
   gradeName: string;
 }
@@ -29,6 +30,7 @@ const EMOJIS = [
 
 export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
   surveyId,
+  surveyToken,
   schoolName,
   gradeName
 }) => {
@@ -36,29 +38,43 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
 
   const [studentsList, setStudentsList] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [answers, setAnswers] = useState<{ [questionId: string]: any }>({});
+  const [answers, setAnswers] = useState<Record<string, number | string[]>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const survey = SURVEY_TEMPLATES.find(t => t.id === surveyId) || SURVEY_TEMPLATES[0];
+  const [resolvedSurveyId, setResolvedSurveyId] = useState(surveyId || '');
+  const [resolvedSchoolName, setResolvedSchoolName] = useState(schoolName);
+  const [resolvedGradeName, setResolvedGradeName] = useState(gradeName);
+  const survey = SURVEY_TEMPLATES.find(t => t.id === resolvedSurveyId) || SURVEY_TEMPLATES[0];
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const res = await dbService.getStudents(schoolName);
-        const filtered = res.filter(s => s.grade === gradeName);
-        setStudentsList(filtered);
+        if (!surveyToken) {
+          throw new Error('Este enlace antiguo ya no es válido. Solicita un nuevo enlace al establecimiento.');
+        }
+        const access = await dbService.getSurveyAccess(surveyToken);
+        setResolvedSurveyId(access.surveyId);
+        setResolvedSchoolName(access.school);
+        setResolvedGradeName(access.grade);
+        setStudentsList(access.participants.map(participant => ({
+          ...participant,
+          rut: participant.id,
+          school: access.school,
+          grade: access.grade,
+          conductScore: 0
+        })));
       } catch (err) {
-        toast.error('Error al cargar lista de estudiantes.');
+        toast.error(err instanceof Error ? err.message : 'Error al abrir el cuestionario.');
       } finally {
         setLoading(false);
       }
     };
     fetchStudents();
-  }, [schoolName, gradeName]);
+  }, [surveyToken]);
 
-  const handleSelectAnswer = (questionId: string, value: any) => {
+  const handleSelectAnswer = (questionId: string, value: number) => {
     setAnswers(prev => ({
       ...prev,
       [questionId]: value
@@ -105,7 +121,7 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
       unanswered = survey.questions.some(q => {
         const val = answers[q.id];
         // At least the first nomination is mandatory
-        return !val || !val[0];
+        return !Array.isArray(val) || !val[0];
       });
     } else {
       unanswered = survey.questions.some(q => !answers[q.id]);
@@ -134,7 +150,10 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
         formattedAnswers = { ...answers };
         // Calculate score average
         let sum = 0;
-        Object.values(answers).forEach(val => { sum += Number(val); });
+        survey.questions.forEach(question => {
+          const rawValue = Number(answers[question.id]);
+          sum += question.reverseScored ? 6 - rawValue : rawValue;
+        });
         score = Number((sum / survey.questions.length).toFixed(1));
 
         // Calculate risk status
@@ -144,15 +163,16 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
       }
 
       const payload: Omit<SurveyAnswer, 'id'> = {
+        accessToken: surveyToken!,
         surveyId: survey.id,
         studentId: student.id,
         studentName: `${student.firstName} ${student.lastName}`,
-        grade: gradeName,
-        school: schoolName,
+        grade: resolvedGradeName,
+        school: resolvedSchoolName,
         responses: formattedAnswers,
         score,
         riskStatus,
-        submittedAt: new Date().toISOString().split('T')[0]
+        submittedAt: new Date().toISOString()
       };
 
       await dbService.createSurveyAnswer(payload);
@@ -251,7 +271,7 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
           <img src="/logo.png" alt="Conexia Logo" className="w-12 h-12 object-contain bg-white rounded-xl p-1" />
           <div>
             <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block">Establecimiento Educacional</span>
-            <h2 className="font-extrabold text-white text-lg leading-snug">{schoolName}</h2>
+            <h2 className="font-extrabold text-white text-lg leading-snug">{resolvedSchoolName}</h2>
           </div>
         </div>
 
@@ -261,6 +281,9 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
           <div>
             <span className="font-bold text-slate-200">{survey.title}</span>
             <p className="text-indigo-300/80 mt-1 leading-relaxed">{survey.description}</p>
+            <p className="text-indigo-300 mt-2 text-[10px]">
+              {survey.purpose} Tiempo estimado: {survey.estimatedMinutes ?? 6} minutos.
+            </p>
           </div>
         </div>
 
@@ -275,13 +298,13 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Selecciona tu Nombre (Curso: {gradeName})
+                Selecciona tu Nombre (Curso: {resolvedGradeName})
               </label>
               
               {studentsList.length === 0 ? (
                 <div className="bg-amber-950/20 border border-amber-900/50 text-amber-300 p-3.5 rounded-xl text-xs flex gap-2">
                   <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                  <span>No se encontraron estudiantes matriculados en el curso <strong>{gradeName}</strong>. Por favor contacta al administrador escolar.</span>
+                  <span>No se encontraron participantes habilitados para el curso <strong>{resolvedGradeName}</strong>. Solicita un nuevo enlace al establecimiento.</span>
                 </div>
               ) : (
                 <select
@@ -417,7 +440,7 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
         <div className="flex gap-2 items-start text-[9px] text-slate-500 leading-normal border-t border-slate-800/40 pt-4">
           <Info size={12} className="text-indigo-500/60 shrink-0 mt-0.5" />
           <span>
-            Declaración de Privacidad: Tu información está protegida en estricto cumplimiento de la Ley N° 19.628 sobre Protección de la Vida Privada. Las respuestas individuales son confidenciales y solo serán revisadas por los terapeutas autorizados del colegio.
+            Declaración de privacidad: las respuestas son confidenciales y solo pueden ser revisadas por personal autorizado del establecimiento. Este instrumento orienta apoyos preventivos; no constituye por sí solo un diagnóstico clínico ni debe utilizarse como fundamento único de una sanción.
           </span>
         </div>
 

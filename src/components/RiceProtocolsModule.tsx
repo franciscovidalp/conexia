@@ -444,7 +444,7 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
             Protocolos de Actuación Digital (RICE)
           </h2>
           <p className="text-sm text-slate-500">
-            Seguimiento legal paso a paso de incidentes y aplicación de protocolos de Convivencia Escolar.
+            Seguimiento legal paso a paso de incidentes y aplicación de protocolos de Convivencia Educativa.
           </p>
         </div>
         

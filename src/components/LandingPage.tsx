@@ -53,7 +53,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
     },
     {
       question: "¿El Plan de Gestión Anual y las Derivaciones Externas se vinculan con otros módulos?",
-      answer: "Sí, de manera nativa. El Plan de Gestión Anual de Convivencia Escolar permite enlazar los talleres y asambleas realizados en el módulo de Vínculo Escolar. Por otro lado, el módulo de Derivación Externa permite filtrar alumnos por su curso real y generar la Ficha Oficial de Derivación Intersectorial en PDF firmada digitalmente."
+      answer: "Sí, de manera nativa. El Plan de Gestión Anual de Convivencia Educativa permite enlazar los talleres y asambleas realizados en el módulo de Vínculo Escolar. Por otro lado, el módulo de Derivación Externa permite filtrar alumnos por su curso real y generar la Ficha Oficial de Derivación Intersectorial en PDF firmada digitalmente."
     },
     {
       question: "¿El Calendario Maestro requiere que ingresemos las actividades por duplicado?",
@@ -162,7 +162,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wider mb-6 animate-pulse">
           <ShieldCheck size={14} />
-          <span>SaaS para la Convivencia Escolar del Siglo XXI</span>
+          <span>SaaS para la Convivencia Educativa del Siglo XXI</span>
         </div>
 
         {/* Headline */}
@@ -174,7 +174,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
         </h1>
 
         <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl leading-relaxed">
-          Ahorra cientos de horas de trabajo administrativo con la plataforma definitiva para duplas psicosociales, encargados de convivencia y directivos. Gestione encuestas DIA socioemocionales, visualice el mapa de clima de cada aula en tiempo real, vigile los plazos legales de protocolos RICE y controle el cumplimiento de medidas de resguardo Mineduc de forma automática.
+          Ahorra cientos de horas de trabajo administrativo con una plataforma para duplas psicosociales, equipos de convivencia y directivos. Gestione instrumentos socioeducativos, visualice mapas de relaciones por curso, vigile los plazos de protocolos RICE y registre el cumplimiento de medidas de resguardo.
         </p>
 
         {/* Call to Actions */}
@@ -377,7 +377,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
               </div>
               <h4 className="text-xl font-bold text-slate-800">Para Directivos y Sostenedores</h4>
               <p className="text-slate-600 text-sm mt-3 leading-relaxed">
-                Control y toma de decisiones basadas en datos. Visualice el mapa de clima escolar de cada curso en tiempo real según Diagnóstico DIA, verifique el cumplimiento del Plan de Gestión y garantice la seguridad institucional con un solo clic.
+                Control y toma de decisiones basadas en datos. Visualice el mapa de clima escolar de cada curso en tiempo real según Diagnóstico y Sociometría, verifique el cumplimiento del Plan de Gestión y garantice la seguridad institucional con un solo clic.
               </p>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs text-emerald-600 font-bold">
@@ -480,15 +480,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick }) => {
               </div>
             </div>
 
-            {/* Feature 7: Diagnóstico DIA y Mapa de Clima */}
+            {/* Feature 7: Diagnóstico y Sociometría y Mapa de Clima */}
             <div className="bg-white border border-slate-250 p-6 rounded-2xl flex gap-4 hover:border-slate-350 hover:scale-[1.02] hover:shadow-md transition-all duration-300 shadow-sm">
               <div className="shrink-0 p-3 rounded-xl bg-violet-50 text-violet-650 w-12 h-12 flex items-center justify-center animate-zoom-in">
                 <BarChart3 size={24} />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-slate-800">Diagnóstico DIA y Mapa de Clima</h4>
+                <h4 className="text-lg font-bold text-slate-800">Diagnóstico, Sociometría y Clima de Aula</h4>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed font-medium">
-                  Cuestionarios alineados con DIA Mineduc. Obtenga reportes inmediatos y el mapa visual del clima escolar por aula para detectar riesgos clínicos y derivar al instante a la Dupla Psicosocial.
+                  Instrumentos de percepción y sociometría con reportes por dimensión y mapas de relaciones del curso. Sus resultados orientan la revisión profesional y los apoyos preventivos, sin reemplazar una evaluación clínica.
                 </p>
               </div>
             </div>

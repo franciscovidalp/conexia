@@ -1,22 +1,26 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { 
-  getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   getDocs, 
+  getDocsFromCache,
   getDoc,
   updateDoc, 
   doc, 
   query, 
   where, 
   deleteDoc,
-  setDoc
+  setDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -27,23 +31,35 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:000000000000:web:000000000000"
 };
 
-let useMock = true;
+const hasFirebaseConfig = Boolean(import.meta.env.VITE_FIREBASE_API_KEY) &&
+  import.meta.env.VITE_FIREBASE_API_KEY !== 'mock-api-key';
+const demoModeEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_MODE === 'true';
+
+if (import.meta.env.PROD && !hasFirebaseConfig) {
+  throw new Error('Configuración de Firebase ausente. CONEXIA bloqueó el inicio para evitar operar con datos locales inseguros.');
+}
+
+let useMock = demoModeEnabled;
 let db: any = null;
 let auth: any = null;
 
-if (import.meta.env.VITE_FIREBASE_API_KEY && import.meta.env.VITE_FIREBASE_API_KEY !== "mock-api-key") {
+if (hasFirebaseConfig) {
   try {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    db = getFirestore(app);
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
     auth = getAuth(app);
     useMock = false;
     console.log("Firebase conectado.");
   } catch (error) {
-    console.warn("Usando Mock Engine:", error);
-    useMock = true;
+    console.error("No fue posible inicializar Firebase:", error);
+    useMock = demoModeEnabled;
   }
-} else {
-  useMock = true;
+} else if (!demoModeEnabled) {
+  throw new Error('Firebase no está configurado. Para una demostración local explícita use VITE_ENABLE_DEMO_MODE=true.');
 }
 
 // Initial Mock Data
@@ -285,6 +301,9 @@ const INITIAL_REFERRALS: ExternalReferral[] = [
 ];
 
 const getLocalData = <T>(key: string, initial: T[]): T[] => {
+  // Firestore data must never be copied to persistent browser storage.
+  // localStorage is exclusively available in the explicitly enabled demo mode.
+  if (!useMock) return [];
   const data = localStorage.getItem(`conexia_${key}`);
   if (!data) {
     localStorage.setItem(`conexia_${key}`, JSON.stringify(initial));
@@ -294,7 +313,26 @@ const getLocalData = <T>(key: string, initial: T[]): T[] => {
 };
 
 const saveLocalData = <T>(key: string, data: T[]) => {
+  if (!useMock) return;
   localStorage.setItem(`conexia_${key}`, JSON.stringify(data));
+};
+
+const studentCacheKey = (school: SchoolType) =>
+  `conexia_students_server_sync_${encodeURIComponent(school)}`;
+
+const localDayKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const invalidateStudentCache = (school?: SchoolType) => {
+  if (school) {
+    localStorage.removeItem(studentCacheKey(school));
+    return;
+  }
+  Object.keys(localStorage)
+    .filter(key => key.startsWith('conexia_students_server_sync_'))
+    .forEach(key => localStorage.removeItem(key));
 };
 
 export const dbService = {
@@ -434,14 +472,37 @@ export const dbService = {
   },
 
   // --- ESTUDIANTES CRUD & IMPORT ---
-  async getStudents(school: SchoolType): Promise<Student[]> {
+  async getStudents(school: SchoolType, forceRefresh = false): Promise<Student[]> {
     if (!useMock) {
       try {
         const q = query(collection(db, 'students'), where('school', '==', school));
+        const cacheMetadataRaw = localStorage.getItem(studentCacheKey(school));
+        let cacheMetadata: { day: string; count: number } | null = null;
+        try {
+          cacheMetadata = cacheMetadataRaw ? JSON.parse(cacheMetadataRaw) : null;
+        } catch {
+          cacheMetadata = null;
+        }
+        const alreadySyncedToday = cacheMetadata?.day === localDayKey();
+        if (!forceRefresh && alreadySyncedToday) {
+          try {
+            const cachedSnap = await getDocsFromCache(q);
+            if (cachedSnap.size === cacheMetadata?.count) {
+              return cachedSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+            }
+          } catch {
+            // A cache miss falls through to the server.
+          }
+        }
         const snap = await getDocs(q);
+        localStorage.setItem(studentCacheKey(school), JSON.stringify({
+          day: localDayKey(),
+          count: snap.size
+        }));
         return snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
       } catch (err) {
         console.error("Firestore error loading students:", err);
+        throw err;
       }
     }
     const all = getLocalData<Student>('students', MOCK_STUDENTS);
@@ -456,6 +517,7 @@ export const dbService = {
     if (!useMock) {
       try {
         await setDoc(doc(db, 'students', newStd.id), newStd);
+        invalidateStudentCache(newStd.school);
       } catch (e) {
         console.error(e);
       }
@@ -501,24 +563,30 @@ export const dbService = {
     saveLocalData('students', all);
     
     if (!useMock) {
-      // Background sync to Firestore
+      // Batched sync is substantially faster than one network round-trip per student.
       try {
-        for (const row of csvRows) {
-          if (!row.rut) continue;
-          const rutKey = row.rut.trim();
-          await setDoc(doc(db, 'students', rutKey), {
-            id: rutKey,
-            rut: rutKey,
-            firstName: row.nombre.trim(),
-            lastName: row.apellido.trim(),
-            school: schoolName,
-            grade: row.curso.trim(),
-            conductScore: 100,
-            email: row.email ? row.email.trim() : ''
+        const validRows = csvRows.filter(row => row.rut && row.nombre && row.apellido && row.curso);
+        for (let offset = 0; offset < validRows.length; offset += 450) {
+          const batch = writeBatch(db);
+          validRows.slice(offset, offset + 450).forEach(row => {
+            const rutKey = row.rut.trim();
+            batch.set(doc(db, 'students', rutKey), {
+              id: rutKey,
+              rut: rutKey,
+              firstName: row.nombre.trim(),
+              lastName: row.apellido.trim(),
+              school: schoolName,
+              grade: row.curso.trim(),
+              conductScore: 100,
+              email: row.email ? row.email.trim() : ''
+            });
           });
+          await batch.commit();
         }
+        invalidateStudentCache(schoolName);
       } catch (e) {
-        console.warn("Could not sync CSV to Firestore:", e);
+        console.error("Could not sync CSV to Firestore:", e);
+        throw e;
       }
     }
 
@@ -529,6 +597,7 @@ export const dbService = {
     if (!useMock) {
       try {
         await updateDoc(doc(db, 'students', id), updates);
+        invalidateStudentCache(updates.school);
       } catch (e) {
         console.error(e);
       }
@@ -545,6 +614,7 @@ export const dbService = {
     if (!useMock) {
       try {
         await deleteDoc(doc(db, 'students', id));
+        invalidateStudentCache();
       } catch (e) {
         console.error(e);
       }
@@ -1270,111 +1340,50 @@ export const dbService = {
 
   // --- AUTHENTICATION ---
   async signIn(emailOrRut: string, checkPassword: string): Promise<Staff> {
-    const staffList = await dbService.getAllStaff();
-    
     const inputCleaned = emailOrRut.trim().toLowerCase();
     const isEmailInput = inputCleaned.includes('@');
-    const cleanInputRut = emailOrRut.replace(/[^0-9kK]/g, '').toUpperCase();
-
-    // Look for user
-    let matchedStaff = staffList.find(st => {
-      if (isEmailInput) {
-        return st.email.toLowerCase().trim() === inputCleaned;
-      } else {
-        const cleanStaffRut = st.rut.replace(/[^0-9kK]/g, '').toUpperCase();
-        return cleanStaffRut === cleanInputRut;
-      }
-    });
-
-    // Special admin registration fallback
-    if (!matchedStaff && inputCleaned === 'franciscojavier.vidal.p@gmail.com') {
-      matchedStaff = {
-        id: "admin-2",
-        rut: "8.888.888-8",
-        firstName: "Francisco Javier",
-        lastName: "Vidal",
-        school: "Colegio BioBío",
-        role: "Administrador",
-        email: "franciscojavier.vidal.p@gmail.com"
-      };
-      
-      const all = getLocalData<Staff>('staff', MOCK_STAFF);
-      all.push(matchedStaff);
-      saveLocalData('staff', all);
-      
-      if (!useMock) {
-        try {
-          await setDoc(doc(db, 'staff', matchedStaff.id), matchedStaff);
-        } catch (e) {
-          console.warn("Could not sync admin registration to Firestore:", e);
-        }
-      }
-    }
-
-    if (!matchedStaff) {
-      throw new Error('El usuario ingresado no está registrado en el sistema.');
-    }
-
-    const checkPasswordCleaned = checkPassword.trim();
 
     if (!useMock && auth) {
-      // If there's a custom password assigned by the admin, validate against it
-      if (matchedStaff.password) {
-        if (matchedStaff.password.trim() === checkPasswordCleaned) {
-          console.log("Custom password login success for:", matchedStaff.email);
-          return matchedStaff;
-        } else {
-          throw new Error('Contraseña incorrecta.');
-        }
+      if (!isEmailInput) {
+        throw new Error('Por seguridad, el acceso en línea requiere correo electrónico.');
       }
-
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, matchedStaff.email, checkPassword);
-        console.log("Firebase Auth success for user:", userCredential.user.email);
-        
-        // Write the users/{uid} mapping document to Firestore for security rules lookup
+        const userCredential = await signInWithEmailAndPassword(auth, inputCleaned, checkPassword);
         const uid = userCredential.user.uid;
-        try {
-          await setDoc(doc(db, 'users', uid), {
-            rut: matchedStaff.rut,
-            email: matchedStaff.email,
-            role: matchedStaff.role,
-            school: matchedStaff.school
-          });
-        } catch (e) {
-          console.warn("Failed to write users mapping document for firestore security rules:", e);
+        const userSnap = await getDoc(doc(db, 'users', uid));
+        if (!userSnap.exists()) {
+          await fbSignOut(auth);
+          throw new Error('La cuenta no tiene un perfil autorizado. Contacte a administración.');
         }
-      } catch (err: any) {
-        console.warn("Firebase Auth failed, checking local credentials fallback:", err);
-        throw new Error(err.message || 'Contraseña incorrecta.');
-      }
-    } else {
-      // If there's a custom password assigned by the admin, validate against it
-      if (matchedStaff.password) {
-        if (matchedStaff.password.trim() === checkPasswordCleaned) {
-          return matchedStaff;
-        } else {
-          throw new Error('Contraseña incorrecta.');
+        const userData = userSnap.data() as Pick<Staff, 'rut' | 'email' | 'role' | 'school'>;
+        const staffSnap = await getDoc(doc(db, 'staff', userData.rut));
+        if (!staffSnap.exists()) {
+          await fbSignOut(auth);
+          throw new Error('No existe una ficha de funcionario habilitada para esta cuenta.');
         }
-      }
-
-      let isPassValid = false;
-
-      const isAdminEmail = matchedStaff.email.toLowerCase().trim() === 'admin@colegiobiobiola.cl' || 
-                           matchedStaff.email.toLowerCase().trim() === 'franciscojavier.vidal.p@gmail.com';
-
-      if (isAdminEmail) {
-        isPassValid = checkPasswordCleaned === '04121988' || checkPasswordCleaned === 'conexia123';
-      } else {
-        isPassValid = checkPasswordCleaned === 'conexia123' || 
-                      checkPasswordCleaned === matchedStaff.rut.replace(/[^0-9kK]/g, '');
-      }
-
-      if (!isPassValid) {
-        throw new Error('Contraseña incorrecta.');
+        const matchedStaff = { id: staffSnap.id, ...staffSnap.data() } as Staff;
+        if (matchedStaff.email.toLowerCase() !== userCredential.user.email?.toLowerCase()) {
+          await fbSignOut(auth);
+          throw new Error('El correo autenticado no coincide con el perfil autorizado.');
+        }
+        return matchedStaff;
+      } catch (err: unknown) {
+        if (err instanceof Error) throw err;
+        throw new Error('No fue posible iniciar sesión.');
       }
     }
 
+    const staffList = getLocalData<Staff>('staff', MOCK_STAFF);
+    const cleanInputRut = emailOrRut.replace(/[^0-9kK]/g, '').toUpperCase();
+    const matchedStaff = staffList.find(st =>
+      isEmailInput
+        ? st.email.toLowerCase().trim() === inputCleaned
+        : st.rut.replace(/[^0-9kK]/g, '').toUpperCase() === cleanInputRut
+    );
+    const demoPassword = import.meta.env.VITE_DEMO_PASSWORD;
+    if (!matchedStaff || !demoPassword || checkPassword !== demoPassword) {
+      throw new Error('Credenciales de demostración incorrectas.');
+    }
     return matchedStaff;
   },
 
@@ -1406,6 +1415,48 @@ export const dbService = {
     all.push(newAns);
     saveLocalData('survey_answers', all);
     return newAns;
+  },
+
+  async createSurveyAccess(
+    surveyId: string,
+    school: string,
+    grade: string,
+    students: Student[],
+    createdBy: string
+  ): Promise<SurveyAccess> {
+    const token = crypto.randomUUID();
+    const access: SurveyAccess = {
+      id: token,
+      surveyId,
+      school,
+      grade,
+      createdBy,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      participants: students
+        .filter(student => student.school === school && student.grade === grade)
+        .map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
+    };
+    if (!useMock) {
+      await setDoc(doc(db, 'survey_access', token), access);
+      return access;
+    }
+    const all = getLocalData<SurveyAccess>('survey_access', []);
+    all.push(access);
+    saveLocalData('survey_access', all);
+    return access;
+  },
+
+  async getSurveyAccess(token: string): Promise<SurveyAccess> {
+    if (!useMock) {
+      const snap = await getDoc(doc(db, 'survey_access', token));
+      if (!snap.exists()) throw new Error('Enlace de cuestionario inválido.');
+      const access = { id: snap.id, ...snap.data() } as SurveyAccess;
+      if (access.expiresAt <= Date.now()) throw new Error('El enlace de cuestionario expiró.');
+      return access;
+    }
+    const access = getLocalData<SurveyAccess>('survey_access', []).find(item => item.id === token);
+    if (!access || access.expiresAt <= Date.now()) throw new Error('Enlace de cuestionario inválido o expirado.');
+    return access;
   },
 
   async getSurveyAnswers(surveyId: string, school: string, grade: string): Promise<SurveyAnswer[]> {
@@ -1608,6 +1659,113 @@ export const dbService = {
     const all = getLocalData<ParentSummons>('parent_summons', []);
     const filtered = all.filter(s => s.id !== id);
     saveLocalData('parent_summons', filtered);
+  },
+
+  async clearSchoolEnrollmentData(school: SchoolType): Promise<{ deleted: number; updatedActivities: number }> {
+    if (!school.trim()) throw new Error('Debe seleccionar un establecimiento.');
+
+    if (!useMock && db) {
+      const schoolCollections = [
+        'students',
+        'coexistence_cases',
+        'psychosocial_cases',
+        'survey_answers',
+        'survey_access',
+        'rice_protocols',
+        'referrals',
+        'parent_summons'
+      ];
+
+      const snapshots = await Promise.all(
+        schoolCollections.map(collectionName =>
+          getDocs(query(collection(db, collectionName), where('school', '==', school)))
+        )
+      );
+
+      const psychosocialSnapshot = snapshots[schoolCollections.indexOf('psychosocial_cases')];
+      const caseIds = psychosocialSnapshot.docs.map(caseDoc => caseDoc.id);
+      const sessionDocs = [];
+      for (let offset = 0; offset < caseIds.length; offset += 30) {
+        const ids = caseIds.slice(offset, offset + 30);
+        if (ids.length === 0) continue;
+        const sessionsSnapshot = await getDocs(
+          query(collection(db, 'clinical_sessions'), where('caseId', 'in', ids))
+        );
+        sessionDocs.push(...sessionsSnapshot.docs);
+      }
+
+      const activitiesSnapshot = await getDocs(
+        query(collection(db, 'activities'), where('school', '==', school))
+      );
+      const activityUpdates = activitiesSnapshot.docs
+        .filter(activityDoc => {
+          const targetIds = activityDoc.data().targetStudentIds;
+          return Array.isArray(targetIds) && targetIds.length > 0;
+        });
+
+      const deleteRefs = [
+        ...snapshots.flatMap(snapshot => snapshot.docs.map(item => item.ref)),
+        ...sessionDocs.map(item => item.ref)
+      ];
+
+      const operations: Array<{ type: 'delete'; ref: typeof deleteRefs[number] } | {
+        type: 'update';
+        ref: typeof deleteRefs[number];
+      }> = [
+        ...deleteRefs.map(ref => ({ type: 'delete' as const, ref })),
+        ...activityUpdates.map(item => ({ type: 'update' as const, ref: item.ref }))
+      ];
+
+      for (let offset = 0; offset < operations.length; offset += 450) {
+        const batch = writeBatch(db);
+        operations.slice(offset, offset + 450).forEach(operation => {
+          if (operation.type === 'delete') batch.delete(operation.ref);
+          else batch.update(operation.ref, { targetStudentIds: [] });
+        });
+        await batch.commit();
+      }
+
+      invalidateStudentCache(school);
+      return { deleted: deleteRefs.length, updatedActivities: activityUpdates.length };
+    }
+
+    const students = getLocalData<Student>('students', MOCK_STUDENTS);
+    const schoolStudentIds = new Set(students.filter(student => student.school === school).map(student => student.id));
+    const psychosocial = getLocalData<PsychosocialCase>('psychosocial_cases', INITIAL_PSYCHOSOCIAL_CASES);
+    const schoolCaseIds = new Set(psychosocial.filter(item => item.school === school).map(item => item.id));
+    let deleted = students.filter(student => student.school === school).length;
+
+    const filterSchoolData = <T extends { school: SchoolType }>(key: string, initial: T[]) => {
+      const all = getLocalData<T>(key, initial);
+      deleted += all.filter(item => item.school === school).length;
+      saveLocalData(key, all.filter(item => item.school !== school));
+    };
+
+    saveLocalData('students', students.filter(student => student.school !== school));
+    filterSchoolData('coexistence_cases', INITIAL_COEXISTENCE_CASES);
+    filterSchoolData('psychosocial_cases', INITIAL_PSYCHOSOCIAL_CASES);
+    filterSchoolData<SurveyAnswer>('survey_answers', []);
+    filterSchoolData<SurveyAccess>('survey_access', []);
+    filterSchoolData('rice_protocols', INITIAL_RICE_PROTOCOLS);
+    filterSchoolData('referrals', INITIAL_REFERRALS);
+    filterSchoolData<ParentSummons>('parent_summons', []);
+
+    const sessions = getLocalData<ClinicalSession>('clinical_sessions', INITIAL_SESSIONS);
+    deleted += sessions.filter(session => schoolCaseIds.has(session.caseId)).length;
+    saveLocalData('clinical_sessions', sessions.filter(session => !schoolCaseIds.has(session.caseId)));
+
+    const activities = getLocalData<Activity>('activities', INITIAL_ACTIVITIES);
+    let updatedActivities = 0;
+    const cleanActivities = activities.map(activity => {
+      if (activity.school !== school || !activity.targetStudentIds?.some(id => schoolStudentIds.has(id))) {
+        return activity;
+      }
+      updatedActivities++;
+      return { ...activity, targetStudentIds: [] };
+    });
+    saveLocalData('activities', cleanActivities);
+    invalidateStudentCache(school);
+    return { deleted, updatedActivities };
   },
 
   async clearAllData(): Promise<void> {

@@ -126,7 +126,7 @@ export const ManagementModule: React.FC<ManagementModuleProps> = ({
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
             <ClipboardList className="text-primary h-7 w-7" />
-            Plan de Gestión de Convivencia Escolar
+            Plan de Gestión de Convivencia Educativa
           </h2>
           <p className="text-sm text-slate-500">
             Metas anuales obligatorias Mineduc, vinculación de talleres formativos y reportabilidad del Consejo Escolar.

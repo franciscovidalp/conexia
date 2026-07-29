@@ -79,7 +79,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClos
           <img src="/logo.png" alt="Conexia Logo" className="w-24 h-24 object-contain bg-white rounded-2xl p-1.5 shadow-md shadow-indigo-500/5 border border-slate-200" />
           <div>
             <h1 className="font-black text-2xl text-slate-900 tracking-tight">CONEXIA</h1>
-            <p className="text-xs text-slate-500 font-semibold">Convivencia Escolar y Apoyo Psicosocial</p>
+            <p className="text-xs text-slate-500 font-semibold">Convivencia Educativa y Apoyo Psicosocial</p>
           </div>
         </div>
  

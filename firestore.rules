@@ -15,12 +15,64 @@ service cloud.firestore {
       return getUserData().role;
     }
 
+    function getRut() {
+      return getUserData().rut;
+    }
+
     function getSchool() {
       return getUserData().school;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && getRole() == 'Administrador';
+    }
+
     function belongsToSchool(schoolName) {
-      return getSchool() == schoolName;
+      return isAuthenticated() && (isAdmin() || getSchool() == schoolName);
+    }
+
+    function isClinicalTeam() {
+      return getRole() in ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'];
+    }
+
+    function validPublicSurveyAnswer(answerId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'accessToken', 'surveyId', 'studentId', 'studentName', 'grade', 'school',
+          'responses', 'score', 'riskStatus', 'submittedAt'
+        ]) &&
+        request.resource.data.id == answerId &&
+        request.resource.data.accessToken is string &&
+        exists(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)) &&
+        request.time.toMillis() <
+          get(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)).data.expiresAt &&
+        request.resource.data.surveyId ==
+          get(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)).data.surveyId &&
+        request.resource.data.school ==
+          get(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)).data.school &&
+        request.resource.data.grade ==
+          get(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)).data.grade &&
+        request.resource.data.surveyId in [
+          'dia-clima-aula', 'dia-bienestar-autoestima', 'dia-relaciones-bullying',
+          'dia-vinculo-familia', 'dia-sociograma', 'convivencia-rice',
+          'resolucion-conflictos'
+        ] &&
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string &&
+        request.resource.data.grade is string &&
+        request.resource.data.school is string &&
+        request.resource.data.responses is map &&
+        request.resource.data.responses.size() <= 12 &&
+        request.resource.data.score is number &&
+        request.resource.data.score >= 0 &&
+        request.resource.data.score <= 5 &&
+        request.resource.data.riskStatus in ['Bajo', 'Medio', 'Alto', 'Crítico'] &&
+        request.resource.data.submittedAt is string &&
+        exists(/databases/$(database)/documents/students/$(request.resource.data.studentId)) &&
+        get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.school == request.resource.data.school &&
+        get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.grade == request.resource.data.grade &&
+        request.resource.data.studentName ==
+          get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.firstName + ' ' +
+          get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.lastName;
     }
 
     // --- COLLECTION RULES ---
@@ -33,12 +85,12 @@ service cloud.firestore {
 
     // 2. Users Collection (UID mapping document created at login)
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || getRole() == 'Administrador');
-      allow create, update: if isAuthenticated() && 
-        request.auth.token.email == request.resource.data.email &&
-        request.resource.data.role == get(/databases/$(database)/documents/staff/$(request.resource.data.rut)).data.role &&
-        request.resource.data.school == get(/databases/$(database)/documents/staff/$(request.resource.data.rut)).data.school;
-      allow delete: if isAuthenticated() && getRole() == 'Administrador';
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        request.auth.uid == userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([])
+      );
     }
 
     // 3. Staff Collection
@@ -99,28 +151,37 @@ service cloud.firestore {
 
     // 8. Clinical Sessions (Highly Sensitive Medical/Therapeutic Notes)
     match /clinical_sessions/{sessionId} {
-      allow read: if isAuthenticated() && 
+      allow read: if isAuthenticated() &&
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
       allow create: if isAuthenticated() && 
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(request.resource.data.caseId)).data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
       allow update: if isAuthenticated() && 
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(request.resource.data.caseId)).data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
       allow delete: if isAuthenticated() && 
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
     }
 
     // 9. Messages (Chat)
     match /messages/{messageId} {
       allow read: if isAuthenticated() && (
-        request.auth.token.email == resource.data.senderId || 
-        request.auth.token.email == resource.data.recipientId
+        getRut() == resource.data.senderId ||
+        getRut() == resource.data.recipientId
       );
-      allow create: if isAuthenticated() && request.auth.token.email == request.resource.data.senderId;
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly([
+          'id', 'senderId', 'senderName', 'recipientId', 'recipientName',
+          'school', 'message', 'createdAt'
+        ]) &&
+        request.resource.data.senderId == getRut() &&
+        request.resource.data.school == getSchool() &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() > 0 &&
+        request.resource.data.message.size() <= 4000;
       allow update, delete: if false; // Messages are immutable
     }
 
@@ -139,11 +200,32 @@ service cloud.firestore {
     match /survey_answers/{answerId} {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
-      allow create: if true; // Public submission allowed via link
+      allow create: if validPublicSurveyAnswer(answerId);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+    }
+
+    // Capability links: public access is limited to an unguessable document id.
+    // Listing is forbidden and links expire automatically after seven days.
+    match /survey_access/{token} {
+      allow get: if resource.data.expiresAt is number &&
+        request.time.toMillis() < resource.data.expiresAt;
+      allow list: if isAdmin();
+      allow create: if isAuthenticated() &&
+        belongsToSchool(request.resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador'] &&
+        request.resource.data.id == token &&
+        request.resource.data.expiresAt is number &&
+        request.resource.data.expiresAt > request.time.toMillis() &&
+        request.resource.data.expiresAt <= request.time.toMillis() + 604800000 &&
+        request.resource.data.participants is list &&
+        request.resource.data.participants.size() <= 100;
+      allow update: if false;
+      allow delete: if isAdmin() || (
+        isAuthenticated() && belongsToSchool(resource.data.school)
+      );
     }
 
     // 12. Rice Protocols

@@ -40,7 +40,7 @@ export const SummonsModule: React.FC<SummonsModuleProps> = ({
   const [interviewerId, setInterviewerId] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [location, setLocation] = useState('Oficina de Convivencia Escolar');
+  const [location, setLocation] = useState('Oficina de Convivencia Educativa');
   const [reason, setReason] = useState('');
 
   // Follow-up editing state
@@ -58,7 +58,7 @@ export const SummonsModule: React.FC<SummonsModuleProps> = ({
     setInterviewerId(loggedInUser.rut);
     setDate(new Date().toISOString().split('T')[0]);
     setTime('10:00');
-    setLocation('Oficina de Convivencia Escolar');
+    setLocation('Oficina de Convivencia Educativa');
     setReason('');
     setIsModalOpen(true);
   };

@@ -34,23 +34,23 @@ interface LayoutProps {
 
 const MODULE_HELP: Record<string, { title: string; desc: string; steps: string[] }> = {
   climate: {
-    title: "Diagnóstico DIA",
-    desc: "Cuestionarios socioemocionales de Convivencia Escolar y clima de aula alineados con DIA Mineduc. Permite compartir enlaces y diagnosticar riesgos.",
+    title: "Diagnóstico y Sociometría",
+    desc: "Instrumentos de percepción socioemocional y sociometría para orientar apoyos de Convivencia Educativa. Permite compartir enlaces seguros y detectar señales que requieren revisión profesional.",
     steps: [
       "Copia el enlace de encuesta del curso y compártelo con alumnos/apoderados.",
       "Revisa la retroalimentación grupal automática con fortalezas y áreas críticas del aula.",
-      "Haz clic en cualquier fila para ver el desglose Likert individual y su recomendación clínica.",
+      "Haz clic en cualquier fila para revisar el desglose individual y las orientaciones preventivas.",
       "Deriva con un solo clic a estudiantes con indicadores de riesgo crítico directo a la Dupla Psicosocial."
     ]
   },
   management: {
     title: "Plan de Gestión",
-    desc: "Planificación anual de objetivos de convivencia escolar, seguimiento de estado por categoría y vinculación directa con actividades preventivas.",
+    desc: "Planificación anual de objetivos de convivencia educativa, seguimiento de estado por categoría y vinculación directa con actividades preventivas.",
     steps: [
       "Define objetivos anuales categorizados (Prevención, Formación, Intervención, Redes u Otro).",
       "Asocia cada objetivo a actividades preventivas planificadas en el módulo de Vínculo Escolar.",
       "Actualiza el estado de avance (No Iniciado, En Proceso, Completado) de cada objetivo.",
-      "Exporta el Plan de Gestión Anual de Convivencia Escolar consolidado en PDF con un clic."
+      "Exporta el Plan de Gestión Anual de Convivencia Educativa consolidado en PDF con un clic."
     ]
   },
   activities: {
@@ -158,7 +158,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const menuItems = [
-    { id: 'climate', label: 'Diagnóstico DIA', icon: BarChart3 },
+    { id: 'climate', label: 'Diagnóstico y Sociometría', icon: BarChart3 },
     { id: 'management', label: 'Plan de Gestión', icon: ClipboardList },
     { id: 'activities', label: 'Vínculo Escolar', icon: CalendarRange },
     { id: 'calendar', label: 'Calendario', icon: CalendarRange },
@@ -184,7 +184,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <img src="/logo.png" alt="Conexia Logo" className="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-200 shadow-xs" />
             <div>
               <h1 className="font-bold text-slate-805 text-base leading-tight tracking-tight">CONEXIA</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Convivencia Escolar</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Convivencia Educativa</p>
             </div>
           </div>
  

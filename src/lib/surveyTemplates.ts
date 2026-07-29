@@ -2,6 +2,8 @@ export interface DIAQuestion {
   id: string;
   text: string;
   category: 'Clima Social' | 'Autoestima' | 'Seguridad' | 'Apoyo Docente';
+  /** Negative statements must be reverse-scored so a higher result always means greater wellbeing. */
+  reverseScored?: boolean;
 }
 
 export interface DIASurvey {
@@ -9,15 +11,19 @@ export interface DIASurvey {
   title: string;
   description: string;
   target: string;
+  estimatedMinutes?: number;
+  purpose?: string;
   questions: DIAQuestion[];
 }
 
 export const SURVEY_TEMPLATES: DIASurvey[] = [
   {
     id: 'dia-clima-aula',
-    title: 'Diagnóstico DIA: Clima de Aula e Inclusión',
+    title: 'Clima de Aula e Inclusión',
     description: 'Evalúa la percepción de los estudiantes sobre la convivencia, el trato respetuoso, la equidad de género y el nivel de integración socioemocional dentro del salón de clases.',
     target: 'Estudiantes',
+    estimatedMinutes: 6,
+    purpose: 'Tamizaje preventivo del clima relacional, la inclusión y la percepción de apoyo adulto.',
     questions: [
       { id: 'q1', text: 'Los estudiantes de mi curso se tratan con respeto durante los recreos y en la sala de clases.', category: 'Clima Social' },
       { id: 'q2', text: 'Siento que mis profesores me escuchan y me apoyan cuando tengo una dificultad de aprendizaje o personal.', category: 'Apoyo Docente' },
@@ -33,9 +39,11 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
   },
   {
     id: 'dia-bienestar-autoestima',
-    title: 'Diagnóstico DIA: Bienestar Socioemocional y Autoestima',
+    title: 'Bienestar Socioemocional y Autoestima',
     description: 'Mide la valoración personal de los alumnos, la capacidad de identificar y expresar sus emociones, y la presencia de redes de apoyo al interior de la comunidad escolar.',
     target: 'Estudiantes',
+    estimatedMinutes: 6,
+    purpose: 'Exploración preventiva de bienestar, autorregulación y redes de apoyo percibidas.',
     questions: [
       { id: 'q1', text: 'Me siento feliz, cómodo y valorado con quién soy al interior de mi establecimiento escolar.', category: 'Autoestima' },
       { id: 'q2', text: 'Cuando me siento triste, asustado o abrumado, sé a qué profesional del colegio recurrir para pedir ayuda.', category: 'Autoestima' },
@@ -51,15 +59,17 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
   },
   {
     id: 'dia-relaciones-bullying',
-    title: 'Diagnóstico DIA: Relaciones Interpersonales y Violencia Escolar',
+    title: 'Relaciones Interpersonales y Prevención de Violencias',
     description: 'Evalúa la frecuencia de conductas disruptivas o burlas, el conocimiento de los canales de denuncia RICE y la velocidad de respuesta del equipo ante casos de violencia escolar.',
     target: 'Estudiantes',
+    estimatedMinutes: 6,
+    purpose: 'Detección temprana de exposición a violencia, confianza institucional y percepción de seguridad.',
     questions: [
       { id: 'q1', text: 'En mi curso, las diferencias de opinión se resuelven mediante el diálogo y no con agresiones verbales o físicas.', category: 'Clima Social' },
       { id: 'q2', text: 'Conozco claramente los canales y profesionales con quienes denunciar un hecho de acoso o ciberacoso.', category: 'Seguridad' },
-      { id: 'q3', text: 'Siento que el Reglamento de Convivencia Escolar se aplica de manera justa y equitativa para todos los alumnos.', category: 'Clima Social' },
-      { id: 'q4', text: 'El equipo de convivencia escolar actúa con rapidez y efectividad cuando ocurre un conflicto en mi curso.', category: 'Apoyo Docente' },
-      { id: 'q5', text: 'He presenciado o sé de situaciones de burlas constantes (bullying) a través de redes sociales en mi curso.', category: 'Seguridad' },
+      { id: 'q3', text: 'Siento que el Reglamento de Convivencia Educativa se aplica de manera justa y equitativa para todos los estudiantes.', category: 'Clima Social' },
+      { id: 'q4', text: 'El equipo de convivencia educativa actúa con rapidez y efectividad cuando ocurre un conflicto en mi curso.', category: 'Apoyo Docente' },
+      { id: 'q5', text: 'He presenciado o sé de situaciones de burlas constantes o ciberacoso entre estudiantes de mi curso.', category: 'Seguridad', reverseScored: true },
       { id: 'q6', text: 'En los recreos, los inspectores y docentes cuidan activamente que no haya agresiones o juegos peligrosos.', category: 'Seguridad' },
       { id: 'q7', text: 'Siento que el colegio nos enseña formas no violentas de resolver los desacuerdos entre compañeros.', category: 'Clima Social' },
       { id: 'q8', text: 'Si denuncio un hecho de violencia en el colegio, confío en que se protegerá mi identidad y seguridad.', category: 'Seguridad' },
@@ -69,9 +79,11 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
   },
   {
     id: 'dia-vinculo-familia',
-    title: 'Diagnóstico DIA: Vínculo Familiar y Alianza Escuela-Hogar',
+    title: 'Vínculo Familiar y Alianza Educativa',
     description: 'Mide la comunicación entre el hogar y el establecimiento, el interés de los apoderados en los procesos académicos de sus pupilos y el soporte familiar percibido por los alumnos.',
     target: 'Estudiantes',
+    estimatedMinutes: 6,
+    purpose: 'Comprensión del apoyo familiar percibido y la alianza entre familia y comunidad educativa.',
     questions: [
       { id: 'q1', text: 'En mi casa, mi familia se interesa activamente por lo que aprendo y hago en el colegio.', category: 'Autoestima' },
       { id: 'q2', text: 'Siento que mi familia y mis profesores trabajan juntos para ayudarme a tener éxito.', category: 'Apoyo Docente' },
@@ -87,9 +99,11 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
   },
   {
     id: 'dia-sociograma',
-    title: 'Diagnóstico DIA: Sociograma y Relaciones del Curso',
+    title: 'Sociograma y Relaciones del Curso',
     description: 'Establece el mapa de relaciones socioafectivas del aula, identificando líderes, alumnos integrados, aislados y dinámicas de aceptación o rechazo escolar.',
     target: 'Estudiantes',
+    estimatedMinutes: 8,
+    purpose: 'Mapa sociométrico para orientar apoyos grupales; no constituye por sí solo un diagnóstico individual.',
     questions: [
       { id: 'q1', text: '¿Con qué compañeros de tu curso te gustaría trabajar en proyectos escolares o tareas de clase?', category: 'Clima Social' },
       { id: 'q2', text: '¿Con qué compañeros de tu curso preferirías NO trabajar en proyectos escolares o tareas de clase?', category: 'Clima Social' },
@@ -101,9 +115,11 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
   },
   {
     id: 'convivencia-rice',
-    title: 'Diagnóstico: Convivencia Escolar y Normativa RICE',
-    description: 'Evalúa el nivel de conocimiento del reglamento interno escolar, la percepción de justicia en las medidas aplicadas y el nivel de participación activa del alumnado en el bienestar escolar.',
+    title: 'Convivencia Educativa y Normativa RICE',
+    description: 'Evalúa el nivel de conocimiento del reglamento interno, la percepción de justicia en las medidas aplicadas y la participación del estudiantado en el bienestar de la comunidad educativa.',
     target: 'Estudiantes',
+    estimatedMinutes: 6,
+    purpose: 'Monitoreo del conocimiento normativo, el debido proceso y la participación estudiantil.',
     questions: [
       { id: 'q1', text: 'Siento que las normas del colegio se aplican a todos los estudiantes de la misma manera, sin favoritismos.', category: 'Clima Social' },
       { id: 'q2', text: 'Conozco las faltas y las medidas disciplinarias que están descritas en el Reglamento Interno (RICE).', category: 'Seguridad' },
@@ -119,9 +135,11 @@ export const SURVEY_TEMPLATES: DIASurvey[] = [
   },
   {
     id: 'resolucion-conflictos',
-    title: 'Diagnóstico: Mediación y Resolución de Conflictos',
+    title: 'Mediación y Resolución Colaborativa de Conflictos',
     description: 'Mide la preferencia por soluciones dialogadas, la efectividad del equipo de mediación escolar y la capacidad percibida por los estudiantes para resolver desacuerdos pacíficamente.',
     target: 'Estudiantes',
+    estimatedMinutes: 6,
+    purpose: 'Evaluación formativa de habilidades y apoyos para resolver conflictos sin violencia.',
     questions: [
       { id: 'q1', text: 'Cuando tengo un problema o pelea con un compañero, prefiero conversar antes que gritar o agredir.', category: 'Autoestima' },
       { id: 'q2', text: 'Sé que en el colegio existe un equipo de estudiantes o profesores mediadores que ayudan a solucionar conflictos.', category: 'Seguridad' },

@@ -90,15 +90,27 @@ function App() {
     if (!loggedInUser) return;
     setCacheStatus('loading');
     try {
-      const loadedStudents = await dbService.getStudents(school);
-      const loadedStaff = await dbService.getStaff(school);
-      const casesObj = await dbService.getCoexistenceCases(school, 1000);
-      const loadedActivities = await dbService.getActivities(school);
-      const loadedPsychosocial = await dbService.getPsychosocialCases(school);
-      const loadedProtocols = await dbService.getRiceProtocols(school);
-      const loadedObjectives = await dbService.getManagementObjectives(school);
-      const loadedReferrals = await dbService.getExternalReferrals(school);
-      const loadedSummons = await dbService.getParentSummons(school);
+      const [
+        loadedStudents,
+        loadedStaff,
+        casesObj,
+        loadedActivities,
+        loadedPsychosocial,
+        loadedProtocols,
+        loadedObjectives,
+        loadedReferrals,
+        loadedSummons
+      ] = await Promise.all([
+        dbService.getStudents(school),
+        dbService.getStaff(school),
+        dbService.getCoexistenceCases(school, 1000),
+        dbService.getActivities(school),
+        dbService.getPsychosocialCases(school),
+        dbService.getRiceProtocols(school),
+        dbService.getManagementObjectives(school),
+        dbService.getExternalReferrals(school),
+        dbService.getParentSummons(school)
+      ]);
  
       setStudents(loadedStudents);
       setStaff(loadedStaff);
@@ -146,7 +158,8 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await dbService.signOut();
     setLoggedInUser(null);
     toast.success('Sesión cerrada correctamente.');
   };
@@ -154,10 +167,11 @@ function App() {
   // Public survey link bypass (check parameters)
   const urlParams = new URLSearchParams(window.location.search);
   const surveyIdParam = urlParams.get('surveyId');
+  const surveyTokenParam = urlParams.get('surveyToken');
   const schoolParam = urlParams.get('school');
   const gradeParam = urlParams.get('grade');
 
-  if (surveyIdParam) {
+  if (surveyIdParam || surveyTokenParam) {
     return (
       <>
         <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
@@ -169,6 +183,7 @@ function App() {
         }>
           <PublicSurveyForm 
             surveyId={surveyIdParam}
+            surveyToken={surveyTokenParam}
             schoolName={schoolParam || ''}
             gradeName={gradeParam || ''}
           />
@@ -281,6 +296,7 @@ function App() {
               onRefreshSchools={loadSchools}
               students={students}
               onRefreshStudents={refreshStudentsState}
+              onEnrollmentCleared={() => loadSchoolCache(activeSchool)}
               onRefreshStaff={refreshStaffState}
               activeTheme={activeTheme}
               setActiveTheme={setActiveTheme}

@@ -103,14 +103,25 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!selectedCourse) {
       toast.error('Por favor seleccione un curso primero.');
       return;
     }
-    const link = `${window.location.origin}/?surveyId=${selectedSurveyId}&school=${encodeURIComponent(activeSchool)}&grade=${encodeURIComponent(selectedCourse)}`;
-    navigator.clipboard.writeText(link);
-    toast.success('¡Enlace de encuesta copiado al portapapeles!');
+    try {
+      const access = await dbService.createSurveyAccess(
+        selectedSurveyId,
+        activeSchool,
+        selectedCourse,
+        students,
+        'authorized-staff'
+      );
+      const link = `${window.location.origin}/?surveyToken=${encodeURIComponent(access.id)}`;
+      await navigator.clipboard.writeText(link);
+      toast.success('Enlace seguro copiado. Expira en 7 días.');
+    } catch {
+      toast.error('No fue posible crear el enlace seguro.');
+    }
   };
   const handleDeriveToPsychosocial = async (resp: DIAResponse) => {
     try {
@@ -127,7 +138,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
         school: activeSchool,
         status: 'Ingresado',
         referredDate: new Date().toISOString().split('T')[0],
-        reason: `Derivación automática desde Módulo Diagnóstico DIA (${selectedSurvey.title}). Puntaje promedio obtenido: ${resp.score}/5 (Clasificación de Riesgo: ${resp.riskStatus}).`,
+        reason: `Derivación automática desde Módulo Diagnóstico y Sociometría (${selectedSurvey.title}). Puntaje promedio obtenido: ${resp.score}/5 (Clasificación de Riesgo: ${resp.riskStatus}).`,
         riskLevel: resp.riskStatus === 'Crítico' ? 'Crítico' : 'Alto'
       };
 
@@ -168,6 +179,11 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   // Math metrics for charts
   const totalAnswers = responses.length;
   const criticalCount = responses.filter(r => r.riskStatus === 'Crítico' || r.riskStatus === 'Alto').length;
+  const normalizeAnswer = (questionId: string, value: unknown) => {
+    const numericValue = Number(value);
+    const question = selectedSurvey.questions.find(item => item.id === questionId);
+    return question?.reverseScored ? 6 - numericValue : numericValue;
+  };
   
   // Calculate average by category
   const categoriesList = ['Clima Social', 'Autoestima', 'Seguridad', 'Apoyo Docente'] as const;
@@ -181,7 +197,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
     responses.forEach(res => {
       catQuestions.forEach(q => {
         if (res.answers[q.id] !== undefined) {
-          sum += res.answers[q.id];
+          sum += normalizeAnswer(q.id, res.answers[q.id]);
           answerCount++;
         }
       });
@@ -203,8 +219,8 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   let totalRatingCount = 0;
   if (selectedSurveyId !== 'dia-sociograma') {
     responses.forEach(res => {
-      Object.values(res.answers).forEach(val => {
-        if (Number(val) >= 4) favorableAnswersCount++;
+      Object.entries(res.answers).forEach(([questionId, val]) => {
+        if (normalizeAnswer(questionId, val) >= 4) favorableAnswersCount++;
         totalRatingCount++;
       });
     });
@@ -263,7 +279,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
     selectedSurvey.questions.forEach(q => {
       const val = resp.answers[q.id];
       if (val !== undefined && cats[q.category]) {
-        cats[q.category].sum += val;
+        cats[q.category].sum += normalizeAnswer(q.id, val);
         cats[q.category].count++;
       }
     });
@@ -281,13 +297,13 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
       return {
         title: 'ALERTA DE RIESGO CRÍTICO',
         style: 'bg-red-550/10 text-red-700 border-red-200',
-        rec: 'Derivar de inmediato al estudiante al equipo psicosocial (Psicólogo) para realizar una evaluación clínica y de contención de urgencia. Agendar citación formal de apoderado dentro de las primeras 48 horas para coordinar apoyos familiares y/o derivaciones a redes externas (CESFAM, OPD).'
+        rec: 'Activar una revisión prioritaria por el equipo psicosocial y contrastar este resultado con entrevista, observación y antecedentes disponibles. El cuestionario es un tamizaje y no confirma por sí solo un diagnóstico ni una situación de vulneración.'
       };
     } else if (score < 3.2) {
       return {
         title: 'ALERTA DE RIESGO ALTO',
         style: 'bg-orange-50 text-orange-700 border-orange-250',
-        rec: 'Coordinar entrevista de exploración psicopedagógica con la psicóloga escolar en los próximos 5 días hábiles. Se recomienda integrar al estudiante a talleres socioemocionales de carácter focalizado y monitorear su integración en los recreos.'
+        rec: 'Coordinar una entrevista de exploración con el equipo de apoyo, contrastar el resultado con otras fuentes e implementar seguimiento preventivo. Evite tomar decisiones disciplinarias o clínicas usando solo este puntaje.'
       };
     } else if (score < 4.0) {
       return {
@@ -299,7 +315,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
       return {
         title: 'ESTADO DE BIENESTAR ÓPTIMO',
         style: 'bg-emerald-50 text-emerald-700 border-emerald-250',
-        rec: 'El estudiante reporta niveles de autoestima y seguridad altamente favorables. Se recomienda incentivar su participación como líder positivo del curso, promotor de sana convivencia escolar o mediador par de conflictos.'
+        rec: 'El estudiante reporta niveles de autoestima y seguridad altamente favorables. Se recomienda incentivar su participación como líder positivo del curso, promotor de sana convivencia educativa o mediador par de conflictos.'
       };
     }
   };
@@ -430,7 +446,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <ClipboardList className="text-indigo-600" />
-            <span>Clima Social Escolar y Diagnóstico DIA</span>
+            <span>Diagnóstico y Sociometría para la Convivencia Educativa</span>
           </h2>
           <p className="text-sm text-slate-500">Módulo de encuestas socioemocionales e indicadores climáticos por nivel escolar.</p>
         </div>
@@ -442,7 +458,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
         <div className="flex flex-col">
           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
             <Brain size={12} className="text-indigo-500" />
-            <span>Seleccionar Encuesta DIA</span>
+            <span>Seleccionar instrumento</span>
           </label>
           <select
             value={selectedSurveyId}
@@ -497,6 +513,9 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
         <div>
           <strong className="font-bold text-indigo-900 block">{selectedSurvey.title}</strong>
           <p className="text-indigo-950/80 mt-1 leading-relaxed">{selectedSurvey.description}</p>
+          <p className="text-indigo-800 mt-2 text-[10px]">
+            {selectedSurvey.purpose} Tiempo estimado: {selectedSurvey.estimatedMinutes ?? 6} minutos.
+          </p>
         </div>
       </div>
 
@@ -1476,7 +1495,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                 </div>
                 <div>
                   <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
-                    Ficha de Retroalimentación Individual DIA
+                    Ficha de Retroalimentación Individual
                   </span>
                   <h3 className="text-base font-black text-slate-800">{activeIndividualResponse.studentName}</h3>
                 </div>
@@ -1495,7 +1514,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
               {/* Overall stats and recommendation */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Puntaje DIA</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Índice de percepción</span>
                   <span className="text-2xl font-black text-slate-850 mt-1">{activeIndividualResponse.score} / 5.0</span>
                   <span className={`inline-block text-[9px] font-bold px-2 py-0.2 border rounded-full mt-1.5 ${
                     activeIndividualResponse.riskStatus === 'Crítico' ? 'bg-red-50 text-red-700 border-red-200' :
@@ -1548,6 +1567,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                 <div className="space-y-2">
                   {selectedSurvey.questions.map((q, idx) => {
                     const score = activeIndividualResponse.answers[q.id] || 0;
+                    const interpretedScore = normalizeAnswer(q.id, score);
                     const emojiMap: { [key: number]: string } = { 1: '😡', 2: '🙁', 3: '😐', 4: '🙂', 5: '😀' };
                     const textMap: { [key: number]: string } = { 
                       1: 'Muy en desacuerdo', 
@@ -1565,12 +1585,18 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                         <div className="space-y-0.5">
                           <span className="text-[10px] text-slate-400 font-bold">Pregunta {idx + 1} • {q.category}</span>
                           <p className="text-slate-800 font-medium">{q.text}</p>
+                          {q.reverseScored && (
+                            <span className="text-[9px] text-indigo-600 font-semibold">Ítem invertido para el cálculo del índice.</span>
+                          )}
                         </div>
                         <div className="shrink-0 flex flex-col items-center justify-center font-bold bg-slate-50 border border-slate-150 rounded-xl px-2.5 py-1.5 min-w-[75px]">
                           <span className="text-base leading-none">{emojiMap[score] || '❓'}</span>
                           <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider whitespace-nowrap text-center">
                             {textMap[score] || 'Sin resp.'}
                           </span>
+                          {q.reverseScored && (
+                            <span className="text-[8px] text-indigo-500 mt-0.5">Índice: {interpretedScore}/5</span>
+                          )}
                         </div>
                       </div>
                     );

@@ -258,7 +258,7 @@ export const exportCoexistenceCasePDF = (
       doc.text('3. PROTOCOLOS Y DERIVACIONES', 15, nextY);
 
       const protocolText = c.protocolActivated 
-        ? `Protocolo Activado: ${c.protocolName || 'Reglamento de Convivencia Escolar'}`
+        ? `Protocolo Activado: ${c.protocolName || 'Reglamento de Convivencia Educativa'}`
         : 'No se activaron protocolos de convivencia formal.';
       const referralText = c.referredToPsychosocial
         ? 'Derivado a: Dupla Psicosocial (Área de Apoyo)'
@@ -308,7 +308,7 @@ export const exportCoexistenceCasePDF = (
       drawSignatures(
         doc,
         [`${reporter.firstName} ${reporter.lastName}`, 'Encargado(a) Convivencia', 'Apoderado / Estudiante'],
-        [reporter.role, 'Convivencia Escolar', 'Firma de Aceptación'],
+        [reporter.role, 'Convivencia Educativa', 'Firma de Aceptación'],
         nextY + 5,
         c.school,
         title,
@@ -595,7 +595,7 @@ export const exportAllActivitiesReportPDF = (activities: Activity[]): Promise<vo
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(255, 255, 255);
-      doc.text('CONEXIA - SISTEMA DE CONVIVENCIA ESCOLAR', 15, 10);
+      doc.text('CONEXIA - SISTEMA DE CONVIVENCIA EDUCATIVA', 15, 10);
 
       let textX = 15;
       if (logoImg) {
@@ -632,7 +632,7 @@ export const exportAllActivitiesReportPDF = (activities: Activity[]): Promise<vo
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
             doc.setTextColor(255, 255, 255);
-            doc.text('CONEXIA - SISTEMA DE CONVIVENCIA ESCOLAR', 15, 10);
+            doc.text('CONEXIA - SISTEMA DE CONVIVENCIA EDUCATIVA', 15, 10);
           }
         }
       });
