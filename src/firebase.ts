@@ -1690,6 +1690,12 @@ export const dbService = {
       { id: '20.114.892-2', rut: '20.114.892-2', firstName: 'Martina', lastName: 'Soto Villagrán', school, grade: '1° Medio A', conductScore: 96, email: 'martina.soto@sannicolas.cl', parentName: 'Marcela Villagrán', parentPhone: '+56 9 6222 3402' },
       { id: '20.455.918-4', rut: '20.455.918-4', firstName: 'Sebastián', lastName: 'Pérez Muñoz', school, grade: '2° Medio B', conductScore: 70, email: 'sebastian.perez@sannicolas.cl', parentName: 'Carolina Muñoz', parentPhone: '+56 9 6333 4503' },
       { id: '21.002.394-1', rut: '21.002.394-1', firstName: 'Valentina', lastName: 'Rojas Gatica', school, grade: '2° Medio B', conductScore: 82, email: 'valentina.rojas@sannicolas.cl', parentName: 'Patricio Rojas', parentPhone: '+56 9 6444 5604' },
+      { id: '22.333.410-7', rut: '22.333.410-7', firstName: 'Emilia', lastName: 'Navarro Leiva', school, grade: '2° Medio B', conductScore: 94, email: 'emilia.navarro@sannicolas.cl', parentName: 'Daniela Leiva', parentPhone: '+56 9 6777 8107' },
+      { id: '22.444.521-2', rut: '22.444.521-2', firstName: 'Mateo', lastName: 'Araya Contreras', school, grade: '2° Medio B', conductScore: 76, email: 'mateo.araya@sannicolas.cl', parentName: 'Paula Contreras', parentPhone: '+56 9 6888 9208' },
+      { id: '22.555.632-8', rut: '22.555.632-8', firstName: 'Lucas', lastName: 'Sepúlveda Ortiz', school, grade: '2° Medio B', conductScore: 86, email: 'lucas.sepulveda@sannicolas.cl', parentName: 'Rodrigo Sepúlveda', parentPhone: '+56 9 6999 1309' },
+      { id: '22.666.743-3', rut: '22.666.743-3', firstName: 'Isidora', lastName: 'Mella Sanhueza', school, grade: '2° Medio B', conductScore: 91, email: 'isidora.mella@sannicolas.cl', parentName: 'Natalia Sanhueza', parentPhone: '+56 9 7000 2410' },
+      { id: '22.777.854-9', rut: '22.777.854-9', firstName: 'Tomás', lastName: 'Carrasco Peña', school, grade: '2° Medio B', conductScore: 79, email: 'tomas.carrasco@sannicolas.cl', parentName: 'Mónica Peña', parentPhone: '+56 9 7111 3511' },
+      { id: '22.888.965-4', rut: '22.888.965-4', firstName: 'Fernanda', lastName: 'Lagos Vidal', school, grade: '2° Medio B', conductScore: 89, email: 'fernanda.lagos@sannicolas.cl', parentName: 'Cristian Lagos', parentPhone: '+56 9 7222 4612' },
       { id: '21.564.912-3', rut: '21.564.912-3', firstName: 'Benjamín', lastName: 'Cortés Salinas', school, grade: '3° Medio A', conductScore: 55, email: 'benjamin.cortes@sannicolas.cl', parentName: 'Andrea Salinas', parentPhone: '+56 9 6555 6705' },
       { id: '22.122.344-9', rut: '22.122.344-9', firstName: 'Antonia', lastName: 'Fuentes Riquelme', school, grade: '3° Medio A', conductScore: 100, email: 'antonia.fuentes@sannicolas.cl', parentName: 'Jorge Fuentes', parentPhone: '+56 9 6666 7806' }
     ];
@@ -1821,6 +1827,59 @@ export const dbService = {
           studentId: response.studentId, studentName: response.studentName, grade: '2° Medio B', school,
           responses: Object.fromEntries(response.values.map((value, valueIndex) => [`q${valueIndex + 1}`, value])),
           score: response.score, riskStatus: response.riskStatus, submittedAt: now
+        }
+      });
+    });
+    const sociogramAccessToken = 'demo-sn-sociogram-access';
+    const sociogramStudents = students.filter(student => student.grade === '2° Medio B');
+    records.push({
+      collectionName: 'survey_access', id: sociogramAccessToken, data: {
+        id: sociogramAccessToken, surveyId: 'dia-sociograma', school, grade: '2° Medio B',
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, createdBy: actor.id,
+        participants: sociogramStudents.map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
+      }
+    });
+    const sociogramResponses = [
+      {
+        studentId: '20.455.918-4', studentName: 'Sebastián Pérez Muñoz',
+        responses: { q1: '21.002.394-1,22.555.632-8', q2: '22.777.854-9', q3: '22.555.632-8,22.444.521-2', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
+      },
+      {
+        studentId: '21.002.394-1', studentName: 'Valentina Rojas Gatica',
+        responses: { q1: '22.333.410-7,22.666.743-3,20.455.918-4', q2: '22.777.854-9', q3: '22.333.410-7,22.888.965-4,22.666.743-3', q4: '22.777.854-9', q5: '22.333.410-7', q6: '22.444.521-2' }
+      },
+      {
+        studentId: '22.333.410-7', studentName: 'Emilia Navarro Leiva',
+        responses: { q1: '21.002.394-1,22.666.743-3,22.888.965-4', q2: '22.777.854-9', q3: '21.002.394-1,22.888.965-4,22.666.743-3', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
+      },
+      {
+        studentId: '22.444.521-2', studentName: 'Mateo Araya Contreras',
+        responses: { q1: '20.455.918-4,22.555.632-8', q2: '22.777.854-9', q3: '20.455.918-4,22.555.632-8', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.777.854-9' }
+      },
+      {
+        studentId: '22.555.632-8', studentName: 'Lucas Sepúlveda Ortiz',
+        responses: { q1: '20.455.918-4,21.002.394-1,22.444.521-2', q2: '22.777.854-9', q3: '20.455.918-4,22.444.521-2,22.888.965-4', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
+      },
+      {
+        studentId: '22.666.743-3', studentName: 'Isidora Mella Sanhueza',
+        responses: { q1: '21.002.394-1,22.333.410-7,22.888.965-4', q2: '22.777.854-9', q3: '21.002.394-1,22.333.410-7,22.888.965-4', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
+      },
+      {
+        studentId: '22.777.854-9', studentName: 'Tomás Carrasco Peña',
+        responses: { q1: '22.444.521-2,20.455.918-4', q2: '21.002.394-1', q3: '22.444.521-2,20.455.918-4', q4: '21.002.394-1', q5: '20.455.918-4', q6: '22.444.521-2' }
+      },
+      {
+        studentId: '22.888.965-4', studentName: 'Fernanda Lagos Vidal',
+        responses: { q1: '22.333.410-7,21.002.394-1,22.666.743-3', q2: '22.777.854-9', q3: '22.333.410-7,21.002.394-1,22.666.743-3', q4: '22.777.854-9', q5: '21.002.394-1', q6: '22.444.521-2' }
+      }
+    ];
+    sociogramResponses.forEach((response, index) => {
+      records.push({
+        collectionName: 'survey_answers', id: `demo-sn-sociogram-answer-${index + 1}`, data: {
+          id: `demo-sn-sociogram-answer-${index + 1}`, accessToken: sociogramAccessToken,
+          surveyId: 'dia-sociograma', studentId: response.studentId, studentName: response.studentName,
+          grade: '2° Medio B', school, responses: response.responses, score: 0,
+          riskStatus: 'Bajo', submittedAt: now
         }
       });
     });
