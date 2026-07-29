@@ -1350,12 +1350,6 @@ export const dbService = {
       try {
         const userCredential = await signInWithEmailAndPassword(auth, inputCleaned, checkPassword);
         const uid = userCredential.user.uid;
-        const userSnap = await getDoc(doc(db, 'users', uid));
-        if (!userSnap.exists()) {
-          await fbSignOut(auth);
-          throw new Error('La cuenta no tiene un perfil autorizado. Contacte a administración.');
-        }
-        const userData = userSnap.data() as Pick<Staff, 'rut' | 'email' | 'role' | 'school'>;
         const staffQuery = query(
           collection(db, 'staff'),
           where('email', '==', userCredential.user.email)
@@ -1367,13 +1361,31 @@ export const dbService = {
           throw new Error('No existe una ficha de funcionario habilitada para esta cuenta.');
         }
         const matchedStaff = { id: staffDocument.id, ...staffDocument.data() } as Staff;
-        if (matchedStaff.rut !== userData.rut) {
-          await fbSignOut(auth);
-          throw new Error('El RUT del perfil autenticado no coincide con la ficha funcionaria.');
-        }
         if (matchedStaff.email.toLowerCase() !== userCredential.user.email?.toLowerCase()) {
           await fbSignOut(auth);
           throw new Error('El correo autenticado no coincide con el perfil autorizado.');
+        }
+        const userRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            staffId: staffDocument.id,
+            rut: matchedStaff.rut,
+            email: matchedStaff.email,
+            role: matchedStaff.role,
+            school: matchedStaff.school
+          });
+        } else {
+          const userData = userSnap.data() as Pick<Staff, 'rut' | 'email' | 'role' | 'school'>;
+          if (
+            userData.rut !== matchedStaff.rut ||
+            userData.email.toLowerCase() !== matchedStaff.email.toLowerCase() ||
+            userData.role !== matchedStaff.role ||
+            userData.school !== matchedStaff.school
+          ) {
+            await fbSignOut(auth);
+            throw new Error('El perfil de acceso no coincide con la ficha funcionaria.');
+          }
         }
         return matchedStaff;
       } catch (err: unknown) {

@@ -86,7 +86,21 @@ service cloud.firestore {
     // 2. Users Collection (UID mapping document created at login)
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        isAuthenticated() &&
+        request.auth.uid == userId &&
+        request.auth.token.email == request.resource.data.email &&
+        request.resource.data.staffId is string &&
+        request.resource.data.rut ==
+          get(/databases/$(database)/documents/staff/$(request.resource.data.staffId)).data.rut &&
+        request.resource.data.email ==
+          get(/databases/$(database)/documents/staff/$(request.resource.data.staffId)).data.email &&
+        request.resource.data.role ==
+          get(/databases/$(database)/documents/staff/$(request.resource.data.staffId)).data.role &&
+        request.resource.data.school ==
+          get(/databases/$(database)/documents/staff/$(request.resource.data.staffId)).data.school
+      );
+      allow delete: if isAdmin();
       allow update: if isAdmin() || (
         request.auth.uid == userId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([])
@@ -95,7 +109,10 @@ service cloud.firestore {
 
     // 3. Staff Collection
     match /staff/{staffId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && (
+        request.auth.token.email == resource.data.email ||
+        belongsToSchool(resource.data.school)
+      );
       allow create: if isAuthenticated() && (getRole() == 'Administrador' || (getRole() == 'Directivo' && belongsToSchool(request.resource.data.school)));
       allow update: if isAuthenticated() && (
         getRole() == 'Administrador' || 
