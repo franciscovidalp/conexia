@@ -1893,9 +1893,20 @@ export const dbService = {
     });
 
     if (!useMock && db) {
-      for (let offset = 0; offset < records.length; offset += 450) {
+      // Messages are intentionally immutable in Firestore. Keep the demo load
+      // idempotent by preserving the existing sample message on subsequent runs.
+      const writableRecords = [];
+      for (const record of records) {
+        if (record.collectionName === 'messages') {
+          const existingMessage = await getDoc(doc(db, record.collectionName, record.id));
+          if (existingMessage.exists()) continue;
+        }
+        writableRecords.push(record);
+      }
+
+      for (let offset = 0; offset < writableRecords.length; offset += 450) {
         const batch = writeBatch(db);
-        records.slice(offset, offset + 450).forEach(record => {
+        writableRecords.slice(offset, offset + 450).forEach(record => {
           batch.set(doc(db, record.collectionName, record.id), record.data);
         });
         await batch.commit();
