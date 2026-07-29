@@ -1893,17 +1893,18 @@ export const dbService = {
       const clusterStart = Math.floor(index / 7) * 7;
       const clusterSize = Math.min(7, sociogramStudents.length - clusterStart);
       const clusterMember = (offset: number) => sociogramStudents[clusterStart + ((index - clusterStart + offset + clusterSize) % clusterSize)].id;
-      const atRiskStudentId = sociogramStudents[34].id;
+      const rejectedStudentId = sociogramStudents[34].id;
+      const isolatedStudentId = sociogramStudents[33].id;
       const clusterCandidates = sociogramStudents
         .slice(clusterStart, clusterStart + clusterSize)
         .map(candidate => candidate.id)
-        .filter(id => id !== student.id && id !== atRiskStudentId);
+        .filter(id => id !== student.id && id !== isolatedStudentId);
       const buildPositiveChoices = (direction: -1 | 1) => {
         const choices = [...new Set([
           sociogramStudents[clusterStart].id,
           sociogramStudents[Math.min(clusterStart + 1, sociogramStudents.length - 1)].id,
           clusterMember(direction)
-        ])].filter(id => id !== student.id && id !== atRiskStudentId);
+        ])].filter(id => id !== student.id && id !== isolatedStudentId);
         clusterCandidates.forEach(id => {
           if (choices.length < 3 && !choices.includes(id)) choices.push(id);
         });
@@ -1911,7 +1912,7 @@ export const dbService = {
       };
       const workChoices = buildPositiveChoices(1);
       const playChoices = buildPositiveChoices(-1);
-      const primaryRejected = atRiskStudentId === student.id ? sociogramStudents[33].id : atRiskStudentId;
+      const primaryRejected = rejectedStudentId === student.id ? sociogramStudents[32].id : rejectedStudentId;
       const leaderIndex = Math.min(clusterStart, sociogramStudents.length - 1);
       const leaderId = sociogramStudents[leaderIndex].id === student.id
         ? sociogramStudents[Math.min(leaderIndex + 1, sociogramStudents.length - 1)].id
@@ -1922,7 +1923,7 @@ export const dbService = {
         q3: playChoices.join(','),
         q4: primaryRejected,
         q5: leaderId,
-        q6: atRiskStudentId === student.id ? sociogramStudents[33].id : atRiskStudentId
+        q6: isolatedStudentId === student.id ? sociogramStudents[32].id : isolatedStudentId
       };
       const answerId = `demo-sn-sociogram-answer-${index + 1}`;
       records.push({
