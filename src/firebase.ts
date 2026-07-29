@@ -1356,12 +1356,21 @@ export const dbService = {
           throw new Error('La cuenta no tiene un perfil autorizado. Contacte a administración.');
         }
         const userData = userSnap.data() as Pick<Staff, 'rut' | 'email' | 'role' | 'school'>;
-        const staffSnap = await getDoc(doc(db, 'staff', userData.rut));
-        if (!staffSnap.exists()) {
+        const staffQuery = query(
+          collection(db, 'staff'),
+          where('email', '==', userCredential.user.email)
+        );
+        const staffQuerySnap = await getDocs(staffQuery);
+        const staffDocument = staffQuerySnap.docs[0];
+        if (!staffDocument) {
           await fbSignOut(auth);
           throw new Error('No existe una ficha de funcionario habilitada para esta cuenta.');
         }
-        const matchedStaff = { id: staffSnap.id, ...staffSnap.data() } as Staff;
+        const matchedStaff = { id: staffDocument.id, ...staffDocument.data() } as Staff;
+        if (matchedStaff.rut !== userData.rut) {
+          await fbSignOut(auth);
+          throw new Error('El RUT del perfil autenticado no coincide con la ficha funcionaria.');
+        }
         if (matchedStaff.email.toLowerCase() !== userCredential.user.email?.toLowerCase()) {
           await fbSignOut(auth);
           throw new Error('El correo autenticado no coincide con el perfil autorizado.');
