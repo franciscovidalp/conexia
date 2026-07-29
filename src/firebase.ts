@@ -1893,9 +1893,17 @@ export const dbService = {
       const clusterStart = Math.floor(index / 7) * 7;
       const clusterSize = Math.min(7, sociogramStudents.length - clusterStart);
       const clusterMember = (offset: number) => sociogramStudents[clusterStart + ((index - clusterStart + offset + clusterSize) % clusterSize)].id;
-      const positiveChoices = [clusterMember(-1), clusterMember(1), clusterMember(2)]
-        .filter((id, choiceIndex, ids) => id !== student.id && ids.indexOf(id) === choiceIndex);
-      const primaryRejected = sociogramStudents[34].id === student.id ? sociogramStudents[33].id : sociogramStudents[34].id;
+      const atRiskStudentId = sociogramStudents[34].id;
+      const positiveChoices = [...new Set([clusterMember(-1), clusterMember(1), clusterMember(2)])]
+        .filter(id => id !== student.id && id !== atRiskStudentId);
+      const clusterCandidates = sociogramStudents
+        .slice(clusterStart, clusterStart + clusterSize)
+        .map(candidate => candidate.id)
+        .filter(id => id !== student.id && id !== atRiskStudentId);
+      clusterCandidates.forEach(id => {
+        if (positiveChoices.length < 3 && !positiveChoices.includes(id)) positiveChoices.push(id);
+      });
+      const primaryRejected = atRiskStudentId === student.id ? sociogramStudents[33].id : atRiskStudentId;
       const leaderIndex = Math.min(clusterStart, sociogramStudents.length - 1);
       const leaderId = sociogramStudents[leaderIndex].id === student.id
         ? sociogramStudents[Math.min(leaderIndex + 1, sociogramStudents.length - 1)].id
@@ -1906,7 +1914,7 @@ export const dbService = {
         q3: [...positiveChoices].reverse().join(','),
         q4: primaryRejected,
         q5: leaderId,
-        q6: sociogramStudents[34].id === student.id ? sociogramStudents[33].id : sociogramStudents[34].id
+        q6: atRiskStudentId === student.id ? sociogramStudents[33].id : atRiskStudentId
       };
       const answerId = `demo-sn-sociogram-answer-${index + 1}`;
       records.push({
