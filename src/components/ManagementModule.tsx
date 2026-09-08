@@ -327,6 +327,7 @@ export const ManagementModule: React.FC<ManagementModuleProps> = ({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  maxLength={200}
                   placeholder="Ej: Ejecutar 3 talleres preventivos sobre ciberacoso en enseñanza media..."
                   className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   required
@@ -356,6 +357,7 @@ export const ManagementModule: React.FC<ManagementModuleProps> = ({
                     type="text"
                     value={target}
                     onChange={(e) => setTarget(e.target.value)}
+                    maxLength={500}
                     placeholder="Ej: 7° Básico a 4° Medio / Profesores"
                     className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
@@ -368,11 +370,13 @@ export const ManagementModule: React.FC<ManagementModuleProps> = ({
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  maxLength={4000}
                   placeholder="Redacte las acciones concretas, recursos y plazos estipulados para esta meta..."
                   className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   rows={3}
                   required
                 />
+                <p className="mt-1 text-right text-[10px] text-slate-400">{description.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               {/* Status */}

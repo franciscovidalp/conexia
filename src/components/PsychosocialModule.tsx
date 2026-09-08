@@ -590,10 +590,12 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
                 <textarea
                   value={sessionNotes}
                   onChange={(e) => setSessionNotes(e.target.value)}
+                  maxLength={8000}
                   placeholder="Detalles de la sesión..."
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-36 font-sans font-medium"
                   required
                 ></textarea>
+                <p className="mt-1 text-right text-[10px] text-slate-400">{sessionNotes.length.toLocaleString('es-CL')} / 8.000</p>
               </div>
 
               <div>
@@ -602,9 +604,11 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
                   type="text"
                   value={sessionAgreements}
                   onChange={(e) => setSessionAgreements(e.target.value)}
+                  maxLength={4000}
                   placeholder="Indique los compromisos acordados..."
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                 />
+                <p className="mt-1 text-right text-[10px] text-slate-400">{sessionAgreements.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               <div>
@@ -681,10 +685,12 @@ export const PsychosocialModule: React.FC<PsychosocialModuleProps> = ({
                 <textarea
                   value={editCaseReason}
                   onChange={(e) => setEditCaseReason(e.target.value)}
+                  maxLength={4000}
                   placeholder="Detalle el motivo del ingreso o diagnóstico preliminar..."
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-36 font-sans font-medium"
                   required
                 ></textarea>
+                <p className="mt-1 text-right text-[10px] text-slate-400">{editCaseReason.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               <div className="flex items-center justify-end border-t border-slate-200 pt-4 mt-6 gap-2">

@@ -435,10 +435,12 @@ export const SummonsModule: React.FC<SummonsModuleProps> = ({
                       <textarea
                         value={editNotes}
                         onChange={(e) => setEditNotes(e.target.value)}
+                        maxLength={4000}
                         placeholder="Registre los compromisos firmados por el apoderado y el entrevistador..."
                         rows={4}
                         className="w-full rounded-xl border border-slate-300 p-2.5 text-xs leading-relaxed focus:border-indigo-500 focus:outline-hidden"
                       />
+                      <p className="mt-1 text-right text-[10px] text-slate-400">{editNotes.length.toLocaleString('es-CL')} / 4.000</p>
                     </div>
                   )}
                   
@@ -547,6 +549,7 @@ export const SummonsModule: React.FC<SummonsModuleProps> = ({
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
+                    maxLength={300}
                     className="w-full rounded-xl border border-slate-300 p-2.5 text-xs"
                     required
                   />
@@ -572,11 +575,13 @@ export const SummonsModule: React.FC<SummonsModuleProps> = ({
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
+                  maxLength={4000}
                   placeholder="Detalle el motivo técnico de la citación de forma clara y respetuosa..."
                   rows={4}
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-xs leading-relaxed focus:border-indigo-500 focus:outline-hidden"
                   required
                 />
+                <p className="mt-1 text-right text-[10px] text-slate-400">{reason.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               <div className="flex gap-2.5 pt-4 border-t border-slate-150 shrink-0">

@@ -455,10 +455,12 @@ export const DerivationsModule: React.FC<DerivationsModuleProps> = ({
                   <textarea
                     value={editObservations}
                     onChange={(e) => setEditObservations(e.target.value)}
+                    maxLength={4000}
                     placeholder="Registre las respuestas de la OPD, citaciones de tribunales o progresos de atención médica..."
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-850 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                     rows={4}
                   />
+                  <p className="mt-1 text-right text-[10px] text-slate-400">{editObservations.length.toLocaleString('es-CL')} / 4.000</p>
                 </div>
               </div>
             </div>
@@ -572,11 +574,13 @@ export const DerivationsModule: React.FC<DerivationsModuleProps> = ({
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
+                  maxLength={4000}
                   placeholder="Describa pormenorizadamente los indicadores detectados de negligencia, vulneración o riesgo clínico del alumno..."
                   className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   rows={4}
                   required
                 />
+                <p className="mt-1 text-right text-[10px] text-slate-400">{reason.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               {/* Previous measures */}
@@ -585,10 +589,12 @@ export const DerivationsModule: React.FC<DerivationsModuleProps> = ({
                 <textarea
                   value={previousMeasures}
                   onChange={(e) => setPreviousMeasures(e.target.value)}
+                  maxLength={4000}
                   placeholder="Detalle entrevistas psicosociales realizadas, acuerdos de convivencia firmados con apoderados o resguardos RICE previos..."
                   className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                   rows={2}
                 />
+                <p className="mt-1 text-right text-[10px] text-slate-400">{previousMeasures.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               {/* Action Buttons */}

@@ -466,6 +466,7 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
                       type="text"
                       value={formTitle}
                       onChange={(e) => setFormTitle(e.target.value)}
+                      maxLength={200}
                       placeholder="Ej: Charla sobre Bullying y Ciberacoso"
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                       required
@@ -489,6 +490,7 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
                         type="text"
                         value={formSpeaker}
                         onChange={(e) => setFormSpeaker(e.target.value)}
+                        maxLength={200}
                         placeholder="Ej: María Paz Toledo"
                         className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                         required
@@ -502,6 +504,7 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
                       type="text"
                       value={formLocation}
                       onChange={(e) => setFormLocation(e.target.value)}
+                      maxLength={300}
                       placeholder="Ej: Gimnasio, Sala 2 Medio, Zoom..."
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                       required
@@ -660,6 +663,9 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
                         type="url"
                         value={formEvidenceUrl}
                         onChange={(e) => setFormEvidenceUrl(e.target.value)}
+                        maxLength={1000}
+                        pattern="https://.*"
+                        title="La dirección debe comenzar con https://"
                         placeholder="https://drive.google.com/..."
                         className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                       />
@@ -671,9 +677,11 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
                     <textarea
                       value={formSummary}
                       onChange={(e) => setFormSummary(e.target.value)}
+                      maxLength={4000}
                       placeholder="Describa cómo se desarrolló la jornada, hallazgos, dificultades y evaluación cualitativa..."
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-36"
                     ></textarea>
+                    <p className="mt-1 text-right text-[10px] text-slate-400">{formSummary.length.toLocaleString('es-CL')} / 4.000</p>
                   </div>
                 </div>
               )}

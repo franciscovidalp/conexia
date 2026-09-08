@@ -590,6 +590,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   placeholder="Ej: Citación Apoderado de Diego Pérez"
                   value={meetingTitle}
                   onChange={(e) => setMeetingTitle(e.target.value)}
+                  maxLength={200}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-shadow"
                 />
               </div>
@@ -637,9 +638,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   placeholder="Detalles sobre los temas a tratar o participantes..."
                   value={meetingDesc}
                   onChange={(e) => setMeetingDesc(e.target.value)}
+                  maxLength={4000}
                   rows={3}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-shadow resize-none"
                 />
+                <p className="mt-1 text-right text-[10px] text-slate-400">{meetingDesc.length.toLocaleString('es-CL')} / 4.000</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">

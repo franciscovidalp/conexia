@@ -756,10 +756,12 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                     <textarea
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
+                      maxLength={4000}
                       placeholder="Indique con claridad qué sucedió, participantes, lugar y contexto del suceso..."
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-32"
                       required
                     ></textarea>
+                    <p className="mt-1 text-right text-[10px] text-slate-400">{formDescription.length.toLocaleString('es-CL')} / 4.000</p>
                   </div>
 
                   <div>
@@ -804,6 +806,7 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                           type="text"
                           value={formProtocolName}
                           onChange={(e) => setFormProtocolName(e.target.value)}
+                          maxLength={200}
                           placeholder="Ej: Protocolo de Bullying y Maltrato"
                           className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                           required={formProtocolActivated}
@@ -838,9 +841,11 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                     <textarea
                       value={formActionPlan}
                       onChange={(e) => setFormActionPlan(e.target.value)}
+                      maxLength={4000}
                       placeholder="Acciones correctivas, suspensiones formativas, citaciones a apoderados..."
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-20"
                     ></textarea>
+                    <p className="mt-1 text-right text-[10px] text-slate-400">{formActionPlan.length.toLocaleString('es-CL')} / 4.000</p>
                   </div>
 
                   <div>
@@ -848,9 +853,11 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                     <textarea
                       value={formCommitments}
                       onChange={(e) => setFormCommitments(e.target.value)}
+                      maxLength={4000}
                       placeholder="Indique los compromisos acordados..."
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm h-20"
                     ></textarea>
+                    <p className="mt-1 text-right text-[10px] text-slate-400">{formCommitments.length.toLocaleString('es-CL')} / 4.000</p>
                   </div>
 
                   <div>
@@ -859,6 +866,9 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                       type="url"
                       value={formEvidenceUrl}
                       onChange={(e) => setFormEvidenceUrl(e.target.value)}
+                      maxLength={1000}
+                      pattern="https://.*"
+                      title="La dirección debe comenzar con https://"
                       placeholder="https://drive.google.com/..."
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm"
                     />
