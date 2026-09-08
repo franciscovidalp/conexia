@@ -18,7 +18,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog, PrivacySettings, SecurityIncident } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -359,6 +359,73 @@ export const dbService = {
       .map(item => ({ id: item.id, ...item.data() } as AuditLog))
       .sort((a, b) => b.occurredAt - a.occurredAt)
       .slice(0, 200);
+  },
+  async getPrivacySettings(school: SchoolType): Promise<PrivacySettings> {
+    const defaults: PrivacySettings = { school, surveyRetentionDays: 365, updatedAt: 0, updatedBy: '' };
+    if (useMock) return defaults;
+    const snap = await getDoc(doc(db, 'privacy_settings', school));
+    return snap.exists() ? ({ ...defaults, ...snap.data() } as PrivacySettings) : defaults;
+  },
+  async savePrivacySettings(school: SchoolType, surveyRetentionDays: number): Promise<PrivacySettings> {
+    if (!auth?.currentUser) throw new Error('Sesión no válida.');
+    const settings: PrivacySettings = {
+      school,
+      surveyRetentionDays,
+      updatedAt: Date.now(),
+      updatedBy: auth.currentUser.uid
+    };
+    await setDoc(doc(db, 'privacy_settings', school), settings);
+    await recordAuditEvent('POLITICA_RETENCION_ACTUALIZADA', school, 'privacy_settings', { surveyRetentionDays });
+    return settings;
+  },
+  async applySurveyRetention(school: SchoolType, retentionDays: number): Promise<number> {
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const [answersSnap, accessSnap] = await Promise.all([
+      getDocs(query(collection(db, 'survey_answers'), where('school', '==', school))),
+      getDocs(query(collection(db, 'survey_access'), where('school', '==', school)))
+    ]);
+    const refs = [
+      ...answersSnap.docs.filter(item => Date.parse(String(item.data().submittedAt || '')) < cutoff).map(item => item.ref),
+      ...accessSnap.docs.filter(item => Number(item.data().expiresAt || 0) < Date.now()).map(item => item.ref)
+    ];
+    for (let offset = 0; offset < refs.length; offset += 450) {
+      const batch = writeBatch(db);
+      refs.slice(offset, offset + 450).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
+    await recordAuditEvent('POLITICA_RETENCION_APLICADA', school, 'survey_data', { deletedRecords: refs.length, retentionDays });
+    return refs.length;
+  },
+  async revokeSurveyAccesses(school: SchoolType): Promise<number> {
+    if (!auth?.currentUser) throw new Error('Sesión no válida.');
+    const snap = await getDocs(query(collection(db, 'survey_access'), where('school', '==', school)));
+    const active = snap.docs.filter(item => !item.data().revokedAt && Number(item.data().expiresAt || 0) > Date.now());
+    for (let offset = 0; offset < active.length; offset += 450) {
+      const batch = writeBatch(db);
+      active.slice(offset, offset + 450).forEach(item => batch.update(item.ref, {
+        revokedAt: Date.now(),
+        revokedBy: auth!.currentUser!.uid
+      }));
+      await batch.commit();
+    }
+    await recordAuditEvent('ENLACES_CUESTIONARIO_REVOCADOS', school, 'survey_access', { links: active.length });
+    return active.length;
+  },
+  async getSecurityIncidents(school: SchoolType): Promise<SecurityIncident[]> {
+    const snap = await getDocs(query(collection(db, 'security_incidents'), where('school', '==', school)));
+    return snap.docs.map(item => ({ id: item.id, ...item.data() } as SecurityIncident)).sort((a, b) => b.createdAt - a.createdAt);
+  },
+  async createSecurityIncident(school: SchoolType, title: string, description: string, severity: SecurityIncident['severity']): Promise<SecurityIncident> {
+    if (!auth?.currentUser) throw new Error('Sesión no válida.');
+    const now = Date.now();
+    const incident: SecurityIncident = { id: crypto.randomUUID(), school, title, description, severity, status: 'Abierto', createdAt: now, createdBy: auth.currentUser.uid, updatedAt: now };
+    await setDoc(doc(db, 'security_incidents', incident.id), incident);
+    await recordAuditEvent('INCIDENTE_SEGURIDAD_REGISTRADO', school, 'security_incident', { severity });
+    return incident;
+  },
+  async updateSecurityIncidentStatus(incident: SecurityIncident, status: SecurityIncident['status']): Promise<void> {
+    await updateDoc(doc(db, 'security_incidents', incident.id), { status, updatedAt: Date.now() });
+    await recordAuditEvent('INCIDENTE_SEGURIDAD_ACTUALIZADO', incident.school, 'security_incident', { status });
   },
   // --- FIRESTORE SEEDER ---
   async seedFirestoreData(): Promise<void> {

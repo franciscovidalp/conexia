@@ -176,6 +176,8 @@ export interface SurveyAccess {
     firstName: string;
     lastName: string;
   }>;
+  revokedAt?: number;
+  revokedBy?: string;
 }
 
 export interface ProtocolStep {
@@ -273,4 +275,23 @@ export interface AuditLog {
   resourceType: string;
   metadata: Record<string, string | number | boolean>;
   occurredAt: number;
+}
+
+export interface PrivacySettings {
+  school: SchoolType;
+  surveyRetentionDays: number;
+  updatedAt: number;
+  updatedBy: string;
+}
+
+export interface SecurityIncident {
+  id: string;
+  school: SchoolType;
+  title: string;
+  description: string;
+  severity: 'Baja' | 'Media' | 'Alta' | 'Crítica';
+  status: 'Abierto' | 'En investigación' | 'Contenido' | 'Cerrado';
+  createdAt: number;
+  createdBy: string;
+  updatedAt: number;
 }

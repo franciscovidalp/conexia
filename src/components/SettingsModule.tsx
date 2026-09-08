@@ -14,7 +14,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { School, Student, SchoolType, Staff, UserRole, AuditLog } from '../types';
+import type { School, Student, SchoolType, Staff, UserRole, AuditLog, PrivacySettings, SecurityIncident } from '../types';
 import toast from 'react-hot-toast';
 
 import { THEMES } from '../lib/themes';
@@ -48,6 +48,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [activeTab, setActiveTab] = useState<'themes' | 'schools' | 'students' | 'staff' | 'security'>('themes');
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings | null>(null);
+  const [securityIncidents, setSecurityIncidents] = useState<SecurityIncident[]>([]);
 
   const isAdmin = loggedInUser?.role === 'Administrador';
   const isDirectivo = loggedInUser?.role === 'Directivo';
@@ -118,11 +120,66 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   useEffect(() => {
     if (activeTab !== 'security' || !isAdmin) return;
     setAuditLoading(true);
-    dbService.getAuditLogs(activeSchool)
-      .then(setAuditLogs)
+    Promise.all([
+      dbService.getAuditLogs(activeSchool),
+      dbService.getPrivacySettings(activeSchool),
+      dbService.getSecurityIncidents(activeSchool)
+    ])
+      .then(([logs, settings, incidents]) => {
+        setAuditLogs(logs);
+        setPrivacySettings(settings);
+        setSecurityIncidents(incidents);
+      })
       .catch(() => toast.error('No fue posible cargar la bitácora de seguridad.'))
       .finally(() => setAuditLoading(false));
   }, [activeTab, activeSchool, isAdmin]);
+
+  const handleSaveRetention = async () => {
+    if (!privacySettings) return;
+    try {
+      const saved = await dbService.savePrivacySettings(activeSchool, privacySettings.surveyRetentionDays);
+      setPrivacySettings(saved);
+      toast.success('Política de retención guardada.');
+    } catch { toast.error('No fue posible guardar la política.'); }
+  };
+
+  const handleApplyRetention = async () => {
+    if (!privacySettings || !window.confirm(`Se eliminarán respuestas anteriores a ${privacySettings.surveyRetentionDays} días y enlaces vencidos. Esta acción no se puede deshacer.`)) return;
+    try {
+      const deleted = await dbService.applySurveyRetention(activeSchool, privacySettings.surveyRetentionDays);
+      toast.success(`Política aplicada: ${deleted} registros eliminados.`);
+    } catch { toast.error('No fue posible aplicar la política de retención.'); }
+  };
+
+  const handleRevokeSurveyLinks = async () => {
+    if (!window.confirm(`¿Revocar inmediatamente todos los enlaces activos de cuestionarios de ${activeSchool}?`)) return;
+    try {
+      const count = await dbService.revokeSurveyAccesses(activeSchool);
+      toast.success(`${count} enlaces activos revocados.`);
+    } catch { toast.error('No fue posible revocar los enlaces.'); }
+  };
+
+  const handleCreateIncident = async () => {
+    const title = window.prompt('Título breve del incidente de seguridad:')?.trim();
+    if (!title) return;
+    const description = window.prompt('Describe qué ocurrió, sin incluir datos personales innecesarios:')?.trim();
+    if (!description) return;
+    const severityInput = window.prompt('Severidad: Baja, Media, Alta o Crítica', 'Media')?.trim();
+    const severity = (['Baja', 'Media', 'Alta', 'Crítica'].includes(severityInput || '') ? severityInput : 'Media') as SecurityIncident['severity'];
+    try {
+      const incident = await dbService.createSecurityIncident(activeSchool, title, description, severity);
+      setSecurityIncidents(current => [incident, ...current]);
+      toast.success('Incidente registrado en la bitácora.');
+    } catch { toast.error('No fue posible registrar el incidente.'); }
+  };
+
+  const handleCloseIncident = async (incident: SecurityIncident) => {
+    try {
+      await dbService.updateSecurityIncidentStatus(incident, 'Cerrado');
+      setSecurityIncidents(current => current.map(item => item.id === incident.id ? { ...item, status: 'Cerrado', updatedAt: Date.now() } : item));
+      toast.success('Incidente marcado como cerrado.');
+    } catch { toast.error('No fue posible actualizar el incidente.'); }
+  };
 
   // ----------------------------------------------------
   // SCHOOL METHODS
@@ -973,6 +1030,37 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               <h3 className="font-bold text-lg text-slate-800">Bitácora inmutable de seguridad</h3>
               <p className="text-xs text-slate-500">Últimos eventos sensibles de {activeSchool}. Los registros no pueden editarse ni eliminarse desde la aplicación.</p>
             </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <h4 className="font-bold text-sm text-slate-800">Retención de cuestionarios</h4>
+              <p className="text-[11px] text-slate-500">Elimina respuestas antiguas y enlaces vencidos según el plazo institucional.</p>
+              <div className="flex items-center gap-2">
+                <input type="number" min={30} max={1825} value={privacySettings?.surveyRetentionDays ?? 365} onChange={event => setPrivacySettings(current => ({ school: activeSchool, updatedAt: current?.updatedAt ?? 0, updatedBy: current?.updatedBy ?? '', surveyRetentionDays: Number(event.target.value) }))} className="w-24 rounded-lg border border-slate-300 p-2 text-xs" />
+                <span className="text-xs text-slate-600">días</span>
+              </div>
+              <div className="flex gap-2"><button onClick={handleSaveRetention} className="rounded-lg bg-slate-800 px-3 py-2 text-[11px] font-bold text-white">Guardar</button><button onClick={handleApplyRetention} className="rounded-lg bg-amber-600 px-3 py-2 text-[11px] font-bold text-white">Aplicar ahora</button></div>
+              <p className="text-[10px] text-amber-700">La ejecución programada requiere habilitar un backend de Firebase. Por ahora debe aplicarse desde este panel.</p>
+            </div>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+              <h4 className="font-bold text-sm text-red-800">Revocación de emergencia</h4>
+              <p className="text-[11px] text-red-700">Invalida todos los enlaces individuales activos del establecimiento.</p>
+              <button onClick={handleRevokeSurveyLinks} className="rounded-lg bg-red-600 px-3 py-2 text-[11px] font-bold text-white">Revocar enlaces activos</button>
+            </div>
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 space-y-3">
+              <h4 className="font-bold text-sm text-indigo-800">Incidentes de seguridad</h4>
+              <p className="text-[11px] text-indigo-700">Registra filtraciones, accesos indebidos o pérdida de documentos.</p>
+              <button onClick={handleCreateIncident} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white">Registrar incidente</button>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-4 py-3 font-bold text-sm text-slate-800">Incidentes registrados</div>
+            {securityIncidents.length === 0 ? <p className="p-4 text-xs text-slate-400">No existen incidentes registrados.</p> : securityIncidents.map(incident => (
+              <div key={incident.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-t border-slate-100 p-4 text-xs">
+                <div><div className="font-bold text-slate-800">{incident.title} · {incident.severity}</div><p className="text-slate-500 mt-1">{incident.description}</p><span className="text-[10px] text-slate-400">{new Date(incident.createdAt).toLocaleString('es-CL')} · {incident.status}</span></div>
+                {incident.status !== 'Cerrado' && <button onClick={() => handleCloseIncident(incident)} className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 font-bold text-slate-600">Marcar cerrado</button>}
+              </div>
+            ))}
           </div>
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
             <table className="w-full text-left text-xs">

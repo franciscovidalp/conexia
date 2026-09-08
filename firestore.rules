@@ -45,6 +45,7 @@ service cloud.firestore {
         request.resource.data.accessToken == answerId &&
         request.resource.data.accessToken is string &&
         exists(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)) &&
+        !('revokedAt' in get(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)).data) &&
         request.time.toMillis() <
           get(/databases/$(database)/documents/survey_access/$(request.resource.data.accessToken)).data.expiresAt &&
         request.resource.data.surveyId ==
@@ -240,6 +241,7 @@ service cloud.firestore {
     // Listing is forbidden and links expire automatically after seven days.
     match /survey_access/{token} {
       allow get: if resource.data.respondent is map &&
+        !('revokedAt' in resource.data) &&
         resource.data.expiresAt is number &&
         request.time.toMillis() < resource.data.expiresAt;
       allow list: if isAdmin();
@@ -260,7 +262,8 @@ service cloud.firestore {
         request.resource.data.respondent.lastName is string &&
         request.resource.data.participants is list &&
         request.resource.data.participants.size() <= 100;
-      allow update: if isAdmin() && belongsToSchool(resource.data.school);
+      allow update: if isAdmin() && belongsToSchool(resource.data.school) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revokedAt', 'revokedBy']);
       allow delete: if isAdmin() || (
         isAuthenticated() && belongsToSchool(resource.data.school)
       );
@@ -285,6 +288,26 @@ service cloud.firestore {
         request.resource.data.occurredAt >= request.time.toMillis() - 60000 &&
         request.resource.data.occurredAt <= request.time.toMillis() + 60000;
       allow update, delete: if false;
+    }
+
+    match /privacy_settings/{schoolId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && belongsToSchool(request.resource.data.school) &&
+        request.resource.data.school == schoolId &&
+        request.resource.data.surveyRetentionDays is int &&
+        request.resource.data.surveyRetentionDays >= 30 &&
+        request.resource.data.surveyRetentionDays <= 1825;
+      allow delete: if false;
+    }
+
+    match /security_incidents/{incidentId} {
+      allow read: if isAdmin() && belongsToSchool(resource.data.school);
+      allow create: if isAdmin() && belongsToSchool(request.resource.data.school) &&
+        request.resource.data.id == incidentId;
+      allow update: if isAdmin() && belongsToSchool(resource.data.school) &&
+        request.resource.data.school == resource.data.school &&
+        request.resource.data.id == resource.data.id;
+      allow delete: if false;
     }
 
     // 12. Rice Protocols
