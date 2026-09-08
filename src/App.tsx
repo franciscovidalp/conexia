@@ -87,6 +87,12 @@ function App() {
   // Main loader for students, staff, and other collections to optimize Firestore reads
   const loadSchoolCache = async (school: SchoolType) => {
     if (!loggedInUser) return;
+    const role = loggedInUser.role;
+    const canLoadCoexistence = ['Administrador', 'Directivo', 'Convivencia', 'Docente'].includes(role);
+    const canLoadActivities = ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Docente'].includes(role);
+    const canLoadClinical = ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'].includes(role);
+    const canLoadInstitutional = ['Administrador', 'Directivo', 'Convivencia'].includes(role);
+    const canLoadReferrals = ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social'].includes(role);
     setCacheStatus('loading');
     try {
       const [
@@ -102,15 +108,13 @@ function App() {
       ] = await Promise.all([
         dbService.getStudents(school),
         dbService.getStaff(school),
-        dbService.getCoexistenceCases(school, 1000),
-        dbService.getActivities(school),
-        ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'].includes(loggedInUser.role)
-          ? dbService.getPsychosocialCases(school)
-          : Promise.resolve([]),
-        dbService.getRiceProtocols(school),
-        dbService.getManagementObjectives(school),
-        dbService.getExternalReferrals(school),
-        dbService.getParentSummons(school)
+        canLoadCoexistence ? dbService.getCoexistenceCases(school, 1000) : Promise.resolve({ data: [], lastDoc: null }),
+        canLoadActivities ? dbService.getActivities(school) : Promise.resolve([]),
+        canLoadClinical ? dbService.getPsychosocialCases(school) : Promise.resolve([]),
+        canLoadInstitutional ? dbService.getRiceProtocols(school) : Promise.resolve([]),
+        canLoadInstitutional ? dbService.getManagementObjectives(school) : Promise.resolve([]),
+        canLoadReferrals ? dbService.getExternalReferrals(school) : Promise.resolve([]),
+        canLoadInstitutional ? dbService.getParentSummons(school) : Promise.resolve([])
       ]);
  
       setStudents(loadedStudents);

@@ -160,7 +160,8 @@ service cloud.firestore {
 
     // 5. Coexistence Cases Collection
     match /coexistence_cases/{caseId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Docente'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia'];
@@ -169,7 +170,8 @@ service cloud.firestore {
 
     // 6. Prevention/Contention Activities
     match /activities/{activityId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Docente'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) && getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) && getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
@@ -225,7 +227,8 @@ service cloud.firestore {
 
     // 10. Meetings
     match /meetings/{meetingId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Docente', 'Psicólogo', 'Trabajador Social'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
@@ -320,7 +323,8 @@ service cloud.firestore {
 
     // 12. Rice Protocols
     match /rice_protocols/{protocolId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
@@ -330,7 +334,8 @@ service cloud.firestore {
 
     // 13. Management Objectives (Plan de Gestión)
     match /objectives/{objectiveId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
@@ -351,7 +356,8 @@ service cloud.firestore {
 
     // 15. Parent Summons (Citaciones)
     match /parent_summons/{summonsId} {
-      allow read: if isAuthenticated() && belongsToSchool(resource.data.school);
+      allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
+        getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
