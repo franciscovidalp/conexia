@@ -43,6 +43,19 @@ service cloud.firestore {
       return isAuthenticated() && getRole() in ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'];
     }
 
+    function validRequiredText(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    function validOptionalText(data, field, maxLength) {
+      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= maxLength);
+    }
+
+    function validOptionalHttpsUrl(data, field) {
+      return !(field in data) || data[field] == null || data[field] == '' ||
+        (data[field] is string && data[field].size() <= 1000 && data[field].matches('https://.*'));
+    }
+
     function validPublicSurveyAnswer(answerId) {
       return request.resource.data.keys().hasOnly([
           'id', 'accessToken', 'surveyId', 'studentId', 'studentName', 'grade', 'school',
@@ -189,9 +202,17 @@ service cloud.firestore {
     match /coexistence_cases/{caseId} {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Docente'];
-      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school);
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
+        validRequiredText(request.resource.data.description, 4000) &&
+        validOptionalText(request.resource.data, 'actionPlan', 4000) &&
+        validOptionalText(request.resource.data, 'commitments', 4000) &&
+        validOptionalHttpsUrl(request.resource.data, 'evidenceUrl');
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        getRole() in ['Administrador', 'Directivo', 'Convivencia'];
+        getRole() in ['Administrador', 'Directivo', 'Convivencia'] &&
+        validRequiredText(request.resource.data.description, 4000) &&
+        validOptionalText(request.resource.data, 'actionPlan', 4000) &&
+        validOptionalText(request.resource.data, 'commitments', 4000) &&
+        validOptionalHttpsUrl(request.resource.data, 'evidenceUrl');
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
 
@@ -199,8 +220,14 @@ service cloud.firestore {
     match /activities/{activityId} {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Docente'];
-      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) && getRole() in ['Administrador', 'Directivo', 'Convivencia'];
-      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) && getRole() in ['Administrador', 'Directivo', 'Convivencia'];
+      allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) && getRole() in ['Administrador', 'Directivo', 'Convivencia'] &&
+        validRequiredText(request.resource.data.title, 200) && validRequiredText(request.resource.data.speaker, 200) &&
+        validRequiredText(request.resource.data.location, 300) && validOptionalText(request.resource.data, 'summary', 4000) &&
+        validOptionalHttpsUrl(request.resource.data, 'evidenceUrl');
+      allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) && getRole() in ['Administrador', 'Directivo', 'Convivencia'] &&
+        validRequiredText(request.resource.data.title, 200) && validRequiredText(request.resource.data.speaker, 200) &&
+        validRequiredText(request.resource.data.location, 300) && validOptionalText(request.resource.data, 'summary', 4000) &&
+        validOptionalHttpsUrl(request.resource.data, 'evidenceUrl');
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
 
@@ -209,9 +236,10 @@ service cloud.firestore {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         isClinicalTeam();
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        (getRole() in ['Administrador', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']) &&
+        validRequiredText(request.resource.data.reason, 4000);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        isClinicalTeam();
+        isClinicalTeam() && validRequiredText(request.resource.data.reason, 4000);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         isClinicalTeam();
     }
@@ -223,11 +251,13 @@ service cloud.firestore {
         isClinicalTeam();
       allow create: if isAuthenticated() && 
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(request.resource.data.caseId)).data.school) &&
-        isClinicalTeam();
+        isClinicalTeam() && validRequiredText(request.resource.data.notes, 8000) &&
+        validOptionalText(request.resource.data, 'agreements', 4000);
       allow update: if isAuthenticated() && 
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(request.resource.data.caseId)).data.school) &&
-        isClinicalTeam();
+        isClinicalTeam() && validRequiredText(request.resource.data.notes, 8000) &&
+        validOptionalText(request.resource.data, 'agreements', 4000);
       allow delete: if isAuthenticated() && 
         belongsToSchool(get(/databases/$(database)/documents/psychosocial_cases/$(resource.data.caseId)).data.school) &&
         isClinicalTeam();
@@ -257,9 +287,11 @@ service cloud.firestore {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Docente', 'Psicólogo', 'Trabajador Social'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        validRequiredText(request.resource.data.title, 200) && validOptionalText(request.resource.data, 'description', 4000);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        validRequiredText(request.resource.data.title, 200) && validOptionalText(request.resource.data, 'description', 4000);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
 
@@ -353,9 +385,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        request.resource.data.steps is list && request.resource.data.steps.size() <= 20 &&
+        (!('measures' in request.resource.data) || (request.resource.data.measures is list && request.resource.data.measures.size() <= 30));
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        request.resource.data.steps is list && request.resource.data.steps.size() <= 20 &&
+        (!('measures' in request.resource.data) || (request.resource.data.measures is list && request.resource.data.measures.size() <= 30));
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
 
@@ -364,9 +400,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        validRequiredText(request.resource.data.title, 200) && validRequiredText(request.resource.data.description, 4000) &&
+        validRequiredText(request.resource.data.target, 500);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        validRequiredText(request.resource.data.title, 200) && validRequiredText(request.resource.data.description, 4000) &&
+        validRequiredText(request.resource.data.target, 500);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
 
@@ -375,9 +415,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']) &&
+        validRequiredText(request.resource.data.reason, 4000) && validRequiredText(request.resource.data.previousMeasures, 4000) &&
+        validOptionalText(request.resource.data, 'observations', 4000);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']) &&
+        validRequiredText(request.resource.data.reason, 4000) && validRequiredText(request.resource.data.previousMeasures, 4000) &&
+        validOptionalText(request.resource.data, 'observations', 4000);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
 
@@ -386,9 +430,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
         getRole() in ['Administrador', 'Directivo', 'Convivencia'];
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        validRequiredText(request.resource.data.reason, 4000) && validOptionalText(request.resource.data, 'notes', 4000) &&
+        validRequiredText(request.resource.data.location, 300);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia']);
+        (getRole() in ['Administrador', 'Directivo', 'Convivencia']) &&
+        validRequiredText(request.resource.data.reason, 4000) && validOptionalText(request.resource.data, 'notes', 4000) &&
+        validRequiredText(request.resource.data.location, 300);
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) && getRole() == 'Administrador';
     }
   }
