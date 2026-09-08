@@ -19,6 +19,7 @@ import toast from 'react-hot-toast';
 
 import { THEMES } from '../lib/themes';
 import type { ColorTheme } from '../lib/themes';
+import { ROLE_PERMISSION_SUMMARY } from '../lib/permissions';
 
 interface SettingsModuleProps {
   activeSchool: SchoolType;
@@ -382,22 +383,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     }
   };
 
-  const handleClearAllDatabase = async () => {
-    if (window.confirm('¿Está ABSOLUTAMENTE seguro de borrar todos los datos del sistema? Esta acción eliminará permanentemente todos los colegios, alumnos, historiales y personal, y re-inicializará tu cuenta de administrador.')) {
-      if (window.confirm('Confirme por segunda vez: ¿Realmente desea borrar todo?')) {
-        try {
-          await dbService.clearAllData();
-          toast.success('Base de datos limpiada con éxito. Redirigiendo...');
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-        } catch (e) {
-          toast.error('Error al limpiar base de datos.');
-        }
-      }
-    }
-  };
-
   const handleClearSchoolEnrollment = async () => {
     const typedSchool = window.prompt(
       `Esta acción borrará la matrícula y todos los expedientes asociados al alumnado de "${activeSchool}".\n\nEscriba exactamente el nombre del establecimiento para continuar:`
@@ -661,23 +646,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           </div>
 
-          {/* Danger Zone (Admin Only) */}
-          {isAdmin && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 space-y-4 shadow-sm">
-              <div>
-                <h3 className="font-bold text-red-800 text-base">Zona de Peligro Administrativo</h3>
-                <p className="text-xs text-red-750/90 leading-relaxed mt-1">
-                  Limpiar base de datos borrará de forma permanente todos los colegios, alumnos, funcionarios e incidencias registradas. La cuenta del administrador se volverá a crear por defecto para que puedas volver a iniciar sesión.
-                </p>
-              </div>
-              <button
-                onClick={handleClearAllDatabase}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow cursor-pointer transition-colors"
-              >
-                Limpiar Base de Datos y Re-iniciar
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -1051,6 +1019,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               <p className="text-[11px] text-indigo-700">Registra filtraciones, accesos indebidos o pérdida de documentos.</p>
               <button onClick={handleCreateIncident} className="rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-bold text-white">Registrar incidente</button>
             </div>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="bg-slate-50 px-4 py-3 font-bold text-sm text-slate-800">Matriz de permisos por rol</div>
+            <table className="w-full text-left text-[11px]"><thead className="border-t border-slate-200 bg-slate-50 text-slate-500 uppercase"><tr><th className="p-3">Rol</th><th className="p-3">Ver</th><th className="p-3">Crear</th><th className="p-3">Editar</th><th className="p-3">Eliminar</th><th className="p-3">Exportar</th></tr></thead><tbody className="divide-y divide-slate-100">{Object.entries(ROLE_PERMISSION_SUMMARY).map(([role, permissions]) => <tr key={role}><td className="p-3 font-bold text-slate-800">{role}</td><td className="p-3">{permissions.view}</td><td className="p-3">{permissions.create}</td><td className="p-3">{permissions.edit}</td><td className="p-3">{permissions.delete}</td><td className="p-3">{permissions.export}</td></tr>)}</tbody></table>
           </div>
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="bg-slate-50 px-4 py-3 font-bold text-sm text-slate-800">Incidentes registrados</div>
