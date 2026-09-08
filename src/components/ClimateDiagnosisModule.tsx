@@ -117,16 +117,31 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
       return;
     }
     try {
-      const access = await dbService.createSurveyAccess(
+      const accesses = await dbService.createSurveyAccesses(
         selectedSurveyId,
         activeSchool,
         selectedCourse,
         students,
-        'authorized-staff'
+        loggedInUser?.id || 'authorized-staff'
       );
-      const link = `${window.location.origin}/?surveyToken=${encodeURIComponent(access.id)}`;
-      await navigator.clipboard.writeText(link);
-      toast.success('Enlace seguro copiado. Expira en 7 días.');
+      const csvRows = [
+        ['Estudiante', 'Curso', 'Enlace individual (un solo uso)'],
+        ...accesses.map(access => [
+          `${access.respondent.firstName} ${access.respondent.lastName}`,
+          access.grade,
+          `${window.location.origin}/?surveyToken=${encodeURIComponent(access.id)}`
+        ])
+      ];
+      const csv = csvRows
+        .map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(','))
+        .join('\n');
+      const blobUrl = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = `enlaces-${selectedSurveyId}-${selectedCourse.replaceAll(' ', '-')}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(blobUrl);
+      toast.success(`${accesses.length} enlaces individuales generados. Expiran en 7 días.`);
     } catch {
       toast.error('No fue posible crear el enlace seguro.');
     }
@@ -514,7 +529,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer group animate-in fade-in zoom-in-95 duration-200"
             >
               <Link size={14} />
-              <span>Copiar Enlace de Encuesta</span>
+              <span>Descargar Enlaces Individuales</span>
             </button>
           ) : (
             <div className="text-center text-xs text-slate-400 font-semibold py-5 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
@@ -541,7 +556,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
           <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-slate-700">Sin Respuestas Aún</h3>
           <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-            Seleccione el curso y comparta el enlace de la encuesta con los estudiantes. Las respuestas aparecerán aquí automáticamente una vez que los alumnos completen el cuestionario.
+            Seleccione el curso y descargue un archivo con un enlace único para cada estudiante. Cada enlace admite una sola respuesta y expira en 7 días.
           </p>
         </div>
       ) : selectedSurveyId === 'dia-sociograma' ? (

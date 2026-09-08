@@ -1396,15 +1396,14 @@ export const dbService = {
   async createSurveyAnswer(ans: Omit<SurveyAnswer, 'id'>): Promise<SurveyAnswer> {
     const newAns: SurveyAnswer = {
       ...ans,
-      id: `ans-${Date.now()}`
+      // One deterministic document per individual capability token. Firestore
+      // create rules reject a second submission for the same student/link.
+      id: ans.accessToken
     };
 
     if (!useMock) {
-      try {
-        await setDoc(doc(db, 'survey_answers', newAns.id), newAns);
-      } catch (err) {
-        console.error("Firestore save survey answer failed:", err);
-      }
+      await setDoc(doc(db, 'survey_answers', newAns.id), newAns);
+      return newAns;
     }
 
     const all = getLocalData<SurveyAnswer>('survey_answers', []);
@@ -1413,33 +1412,39 @@ export const dbService = {
     return newAns;
   },
 
-  async createSurveyAccess(
+  async createSurveyAccesses(
     surveyId: string,
     school: string,
     grade: string,
     students: Student[],
     createdBy: string
-  ): Promise<SurveyAccess> {
-    const token = crypto.randomUUID();
-    const access: SurveyAccess = {
-      id: token,
-      surveyId,
-      school,
-      grade,
-      createdBy,
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      participants: students
-        .filter(student => student.school === school && student.grade === grade)
-        .map(({ id, firstName, lastName }) => ({ id, firstName, lastName }))
-    };
+  ): Promise<SurveyAccess[]> {
+    const courseStudents = students.filter(student => student.school === school && student.grade === grade);
+    const peerRoster = courseStudents.map(({ id, firstName, lastName }) => ({ id, firstName, lastName }));
+    const accesses: SurveyAccess[] = courseStudents.map(student => {
+      const token = crypto.randomUUID();
+      return {
+        id: token,
+        surveyId,
+        school,
+        grade,
+        createdBy,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        respondent: { id: student.id, firstName: student.firstName, lastName: student.lastName },
+        participants: surveyId === 'dia-sociograma' ? peerRoster : []
+      };
+    });
+    if (accesses.length === 0) throw new Error('El curso no tiene estudiantes habilitados.');
     if (!useMock) {
-      await setDoc(doc(db, 'survey_access', token), access);
-      return access;
+      const batch = writeBatch(db);
+      accesses.forEach(access => batch.set(doc(db, 'survey_access', access.id), access));
+      await batch.commit();
+      return accesses;
     }
     const all = getLocalData<SurveyAccess>('survey_access', []);
-    all.push(access);
+    all.push(...accesses);
     saveLocalData('survey_access', all);
-    return access;
+    return accesses;
   },
 
   async getSurveyAccess(token: string): Promise<SurveyAccess> {

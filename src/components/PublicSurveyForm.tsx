@@ -37,11 +37,13 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
 
 
   const [studentsList, setStudentsList] = useState<Student[]>([]);
+  const [respondent, setRespondent] = useState<Student | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [answers, setAnswers] = useState<Record<string, number | string[]>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
 
   const [resolvedSurveyId, setResolvedSurveyId] = useState(surveyId || '');
   const [resolvedSchoolName, setResolvedSchoolName] = useState(schoolName);
@@ -58,6 +60,15 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
         setResolvedSurveyId(access.surveyId);
         setResolvedSchoolName(access.school);
         setResolvedGradeName(access.grade);
+        const accessRespondent: Student = {
+          ...access.respondent,
+          rut: access.respondent.id,
+          school: access.school,
+          grade: access.grade,
+          conductScore: 0
+        };
+        setRespondent(accessRespondent);
+        setSelectedStudentId(accessRespondent.id);
         setStudentsList(access.participants.map(participant => ({
           ...participant,
           rut: participant.id,
@@ -111,7 +122,11 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
     e.preventDefault();
 
     if (!selectedStudentId) {
-      toast.error('Por favor, selecciona tu nombre de la lista.');
+      toast.error('Este enlace no identifica a un estudiante habilitado.');
+      return;
+    }
+    if (!privacyAcknowledged) {
+      toast.error('Debes confirmar que leíste el aviso de privacidad antes de responder.');
       return;
     }
 
@@ -134,7 +149,7 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
 
     setSubmitting(true);
     try {
-      const student = studentsList.find(s => s.id === selectedStudentId);
+      const student = respondent;
       if (!student) throw new Error('Estudiante no encontrado.');
 
       let formattedAnswers: { [key: string]: any } = {};
@@ -172,14 +187,17 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
         responses: formattedAnswers,
         score,
         riskStatus,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        privacyNoticeVersion: '2026-09-08',
+        privacyNoticeAcknowledged: true
       };
 
       await dbService.createSurveyAnswer(payload);
       setSuccess(true);
       toast.success('¡Muchas gracias por tus respuestas!');
     } catch (err) {
-      toast.error('Error al enviar respuestas. Inténtelo de nuevo.');
+      console.error('Survey submission rejected:', err);
+      toast.error('No fue posible enviar la respuesta. El enlace puede haber sido utilizado o haber expirado.');
     } finally {
       setSubmitting(false);
     }
@@ -293,30 +311,23 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
           <div className="bg-slate-850/60 border border-slate-800 p-4.5 rounded-2xl space-y-4">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <User size={14} className="text-indigo-400" />
-              <span>1. Identificación del Estudiante</span>
+              <span>1. Acceso individual verificado</span>
             </h3>
 
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Selecciona tu Nombre (Curso: {resolvedGradeName})
+                Estudiante habilitado (Curso: {resolvedGradeName})
               </label>
               
-              {studentsList.length === 0 ? (
+              {!respondent ? (
                 <div className="bg-amber-950/20 border border-amber-900/50 text-amber-300 p-3.5 rounded-xl text-xs flex gap-2">
                   <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                  <span>No se encontraron participantes habilitados para el curso <strong>{resolvedGradeName}</strong>. Solicita un nuevo enlace al establecimiento.</span>
+                  <span>Este enlace no tiene un estudiante habilitado. Solicita uno nuevo al establecimiento.</span>
                 </div>
               ) : (
-                <select
-                  value={selectedStudentId}
-                  onChange={(e) => setSelectedStudentId(e.target.value)}
-                  className="w-full bg-slate-900 text-white rounded-xl border border-slate-700 p-3 text-sm focus:border-indigo-500 font-semibold"
-                >
-                  <option value="">-- Seleccionar mi nombre --</option>
-                  {studentsList.map(s => (
-                    <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
-                  ))}
-                </select>
+                <div className="w-full bg-slate-900 text-white rounded-xl border border-slate-700 p-3 text-sm font-semibold">
+                  {respondent.firstName} {respondent.lastName}
+                </div>
               )}
             </div>
           </div>
@@ -422,9 +433,18 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
 
               {/* Submit Button */}
               <div className="pt-2 border-t border-slate-800">
+                <label className="mb-4 flex items-start gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-[11px] text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={privacyAcknowledged}
+                    onChange={event => setPrivacyAcknowledged(event.target.checked)}
+                    className="mt-0.5 accent-indigo-500"
+                  />
+                  <span>Confirmo que leí el aviso de privacidad, conozco la finalidad educativa del cuestionario y recibí este enlace individual desde mi establecimiento.</span>
+                </label>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !privacyAcknowledged}
                   className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-550 text-white font-bold py-4 rounded-xl shadow-lg transition-all focus:ring-2 focus:ring-indigo-500 cursor-pointer flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>{submitting ? 'Enviando Respuestas...' : 'Enviar Respuestas'}</span>

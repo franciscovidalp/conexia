@@ -154,6 +154,8 @@ export interface SurveyAnswer {
   score: number; // 0 to 100
   riskStatus: 'Bajo' | 'Medio' | 'Alto' | 'Crítico';
   submittedAt: string;
+  privacyNoticeVersion?: string;
+  privacyNoticeAcknowledged?: boolean;
 }
 
 export interface SurveyAccess {
@@ -163,6 +165,12 @@ export interface SurveyAccess {
   grade: string;
   expiresAt: number;
   createdBy: string;
+  respondent: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  // Only populated for sociograms, where peer nominations require names.
   participants: Array<{
     id: string;
     firstName: string;
