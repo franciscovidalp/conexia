@@ -1497,25 +1497,27 @@ export const dbService = {
         }
         const userRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            staffId: staffDocument.id,
-            rut: matchedStaff.rut,
-            email: matchedStaff.email,
-            role: matchedStaff.role,
-            school: matchedStaff.school
-          });
-        } else {
-          const userData = userSnap.data() as Pick<Staff, 'rut' | 'email' | 'role' | 'school'>;
-          if (
-            userData.rut !== matchedStaff.rut ||
-            userData.email.toLowerCase() !== matchedStaff.email.toLowerCase() ||
-            userData.role !== matchedStaff.role ||
-            userData.school !== matchedStaff.school
-          ) {
-            await fbSignOut(auth);
-            throw new Error('El perfil de acceso no coincide con la ficha funcionaria.');
-          }
+        const canonicalUserMapping = {
+          staffId: staffDocument.id,
+          rut: matchedStaff.rut,
+          email: matchedStaff.email,
+          role: matchedStaff.role,
+          school: matchedStaff.school
+        };
+        const userData = userSnap.exists()
+          ? userSnap.data() as Partial<typeof canonicalUserMapping>
+          : undefined;
+        if (
+          !userData ||
+          userData.staffId !== canonicalUserMapping.staffId ||
+          userData.rut !== canonicalUserMapping.rut ||
+          userData.email !== canonicalUserMapping.email ||
+          userData.role !== canonicalUserMapping.role ||
+          userData.school !== canonicalUserMapping.school
+        ) {
+          // Transparently repairs legacy UID mappings that predate staffId.
+          // Firestore rules verify every value against the staff record.
+          await setDoc(userRef, canonicalUserMapping);
         }
         try {
           await this.recordLoginSuccess(matchedStaff);
