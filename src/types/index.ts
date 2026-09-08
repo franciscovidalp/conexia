@@ -34,6 +34,7 @@ export interface Staff {
   active?: boolean;
   suspendedAt?: number;
   suspendedBy?: string;
+  reactivatedAt?: number;
 }
 
 export type CaseType = 'Positiva' | 'Leve' | 'Grave' | 'Gravísima';
@@ -297,4 +298,16 @@ export interface SecurityIncident {
   createdAt: number;
   createdBy: string;
   updatedAt: number;
+}
+
+export interface LoginEvent {
+  id: string;
+  actorUid: string;
+  actorEmail: string;
+  staffId: string;
+  school: SchoolType;
+  role: UserRole;
+  occurredAt: number;
+  userAgent: string;
+  recentlyReactivated: boolean;
 }

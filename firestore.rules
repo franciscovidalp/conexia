@@ -131,11 +131,18 @@ service cloud.firestore {
         request.auth.token.email == resource.data.email ||
         belongsToSchool(resource.data.school)
       );
-      allow create: if isAuthenticated() && (getRole() == 'Administrador' || (getRole() == 'Directivo' && belongsToSchool(request.resource.data.school)));
+      allow create: if isAuthenticated() && (getRole() == 'Administrador' || (
+        getRole() == 'Directivo' &&
+        belongsToSchool(request.resource.data.school) &&
+        request.resource.data.school == getSchool() &&
+        request.resource.data.role != 'Administrador'
+      ));
       allow update: if isAuthenticated() && (
         getRole() == 'Administrador' || 
         (getRole() == 'Directivo' && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-          request.resource.data.get('active', true) == resource.data.get('active', true)) ||
+          request.resource.data.get('active', true) == resource.data.get('active', true) &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.school == resource.data.school) ||
         (
           request.auth.token.email == resource.data.email && 
           request.auth.token.email == request.resource.data.email &&
@@ -145,6 +152,26 @@ service cloud.firestore {
         )
       );
       allow delete: if false;
+    }
+
+    match /login_events/{eventId} {
+      allow read: if isAdmin() && belongsToSchool(resource.data.school);
+      allow create: if isActiveAccount() &&
+        request.resource.data.keys().hasOnly(['id', 'actorUid', 'actorEmail', 'staffId', 'school', 'role', 'occurredAt', 'userAgent', 'recentlyReactivated']) &&
+        request.resource.data.id == eventId &&
+        request.resource.data.actorUid == request.auth.uid &&
+        request.resource.data.actorEmail == request.auth.token.email &&
+        request.resource.data.staffId == getUserData().staffId &&
+        request.resource.data.school == getSchool() &&
+        request.resource.data.role == getRole() &&
+        request.resource.data.userAgent is string &&
+        request.resource.data.userAgent.size() <= 200 &&
+        request.resource.data.recentlyReactivated is bool &&
+        request.resource.data.occurredAt is number &&
+        request.resource.data.occurredAt >= request.time.toMillis() - 60000 &&
+        request.resource.data.occurredAt <= request.time.toMillis() + 60000;
+      allow update: if false;
+      allow delete: if isAdmin() && resource.data.occurredAt < request.time.toMillis() - 31536000000;
     }
 
     // 4. Students Collection

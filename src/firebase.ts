@@ -19,7 +19,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog, PrivacySettings, SecurityIncident } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog, PrivacySettings, SecurityIncident, LoginEvent } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -361,6 +361,22 @@ export const dbService = {
       .sort((a, b) => b.occurredAt - a.occurredAt)
       .slice(0, 200);
   },
+  async getLoginEvents(school: SchoolType): Promise<LoginEvent[]> {
+    if (useMock) return [];
+    const snap = await getDocs(query(collection(db, 'login_events'), where('school', '==', school)));
+    return snap.docs.map(item => ({ id: item.id, ...item.data() } as LoginEvent)).sort((a, b) => b.occurredAt - a.occurredAt).slice(0, 100);
+  },
+  async recordLoginSuccess(staff: Staff): Promise<void> {
+    if (useMock || !auth?.currentUser) return;
+    const occurredAt = Date.now();
+    const event: LoginEvent = {
+      id: crypto.randomUUID(), actorUid: auth.currentUser.uid, actorEmail: auth.currentUser.email || '',
+      staffId: staff.id, school: staff.school, role: staff.role, occurredAt,
+      userAgent: navigator.userAgent.slice(0, 200),
+      recentlyReactivated: Boolean(staff.reactivatedAt && occurredAt - staff.reactivatedAt < 7 * 24 * 60 * 60 * 1000)
+    };
+    await setDoc(doc(db, 'login_events', event.id), event);
+  },
   async getPrivacySettings(school: SchoolType): Promise<PrivacySettings> {
     const defaults: PrivacySettings = { school, surveyRetentionDays: 365, updatedAt: 0, updatedBy: '' };
     if (useMock) return defaults;
@@ -381,13 +397,15 @@ export const dbService = {
   },
   async applySurveyRetention(school: SchoolType, retentionDays: number): Promise<number> {
     const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
-    const [answersSnap, accessSnap] = await Promise.all([
+    const [answersSnap, accessSnap, loginSnap] = await Promise.all([
       getDocs(query(collection(db, 'survey_answers'), where('school', '==', school))),
-      getDocs(query(collection(db, 'survey_access'), where('school', '==', school)))
+      getDocs(query(collection(db, 'survey_access'), where('school', '==', school))),
+      getDocs(query(collection(db, 'login_events'), where('school', '==', school)))
     ]);
     const refs = [
       ...answersSnap.docs.filter(item => Date.parse(String(item.data().submittedAt || '')) < cutoff).map(item => item.ref),
-      ...accessSnap.docs.filter(item => Number(item.data().expiresAt || 0) < Date.now()).map(item => item.ref)
+      ...accessSnap.docs.filter(item => Number(item.data().expiresAt || 0) < Date.now()).map(item => item.ref),
+      ...loginSnap.docs.filter(item => Number(item.data().occurredAt || 0) < Date.now() - 365 * 24 * 60 * 60 * 1000).map(item => item.ref)
     ];
     for (let offset = 0; offset < refs.length; offset += 450) {
       const batch = writeBatch(db);
@@ -754,11 +772,9 @@ export const dbService = {
 
   async updateStaff(id: string, updates: Partial<Staff>): Promise<void> {
     if (!useMock) {
-      try {
-        await updateDoc(doc(db, 'staff', id), updates);
-      } catch (e) {
-        console.error(e);
-      }
+      await updateDoc(doc(db, 'staff', id), updates);
+      if (updates.school) await recordAuditEvent('CUENTA_MODIFICADA', updates.school, 'staff_account', { targetStaffId: id, changedFields: Object.keys(updates).join(',') });
+      return;
     }
     const all = getLocalData<Staff>('staff', MOCK_STAFF);
     const idx = all.findIndex(st => st.id === id || st.rut === id);
@@ -784,11 +800,11 @@ export const dbService = {
   async setStaffActive(staff: Staff, active: boolean): Promise<void> {
     if (!auth?.currentUser) throw new Error('Sesión no válida.');
     const updates: Partial<Staff> = active
-      ? { active: true, suspendedAt: undefined, suspendedBy: undefined }
+      ? { active: true, suspendedAt: undefined, suspendedBy: undefined, reactivatedAt: Date.now() }
       : { active: false, suspendedAt: Date.now(), suspendedBy: auth.currentUser.uid };
     if (!useMock) {
       const cleanUpdates = active
-        ? { active: true, suspendedAt: null, suspendedBy: null }
+        ? { active: true, suspendedAt: null, suspendedBy: null, reactivatedAt: Date.now() }
         : updates;
       await updateDoc(doc(db, 'staff', staff.id), cleanUpdates);
       await recordAuditEvent(active ? 'CUENTA_REACTIVADA' : 'CUENTA_SUSPENDIDA', staff.school, 'staff_account', {
@@ -1493,6 +1509,11 @@ export const dbService = {
             await fbSignOut(auth);
             throw new Error('El perfil de acceso no coincide con la ficha funcionaria.');
           }
+        }
+        try {
+          await this.recordLoginSuccess(matchedStaff);
+        } catch (auditError) {
+          console.error('No fue posible registrar el acceso:', auditError);
         }
         return matchedStaff;
       } catch (err: unknown) {

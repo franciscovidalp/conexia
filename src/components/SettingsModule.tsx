@@ -14,7 +14,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { School, Student, SchoolType, Staff, UserRole, AuditLog, PrivacySettings, SecurityIncident } from '../types';
+import type { School, Student, SchoolType, Staff, UserRole, AuditLog, PrivacySettings, SecurityIncident, LoginEvent } from '../types';
 import toast from 'react-hot-toast';
 
 import { THEMES } from '../lib/themes';
@@ -51,6 +51,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [auditLoading, setAuditLoading] = useState(false);
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings | null>(null);
   const [securityIncidents, setSecurityIncidents] = useState<SecurityIncident[]>([]);
+  const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
 
   const isAdmin = loggedInUser?.role === 'Administrador';
   const isDirectivo = loggedInUser?.role === 'Directivo';
@@ -124,12 +125,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     Promise.all([
       dbService.getAuditLogs(activeSchool),
       dbService.getPrivacySettings(activeSchool),
-      dbService.getSecurityIncidents(activeSchool)
+      dbService.getSecurityIncidents(activeSchool),
+      dbService.getLoginEvents(activeSchool)
     ])
-      .then(([logs, settings, incidents]) => {
+      .then(([logs, settings, incidents, logins]) => {
         setAuditLogs(logs);
         setPrivacySettings(settings);
         setSecurityIncidents(incidents);
+        setLoginEvents(logins);
       })
       .catch(() => toast.error('No fue posible cargar la bitácora de seguridad.'))
       .finally(() => setAuditLoading(false));
@@ -327,7 +330,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       setStaffLastName('');
       setStaffEmail('');
       setStaffRole('Docente');
-      setStaffSchool(schools.length > 0 ? schools[0].name : activeSchool);
+      setStaffSchool(isAdmin && schools.length > 0 ? schools[0].name : activeSchool);
     }
     setIsStaffModalOpen(true);
   };
@@ -1021,6 +1024,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="bg-slate-50 px-4 py-3 font-bold text-sm text-slate-800">Últimos accesos exitosos</div>
+            <table className="w-full text-left text-[11px]"><thead className="border-t border-slate-200 bg-slate-50 text-slate-500 uppercase"><tr><th className="p-3">Fecha</th><th className="p-3">Cuenta</th><th className="p-3">Rol</th><th className="p-3">Alerta</th></tr></thead><tbody className="divide-y divide-slate-100">{loginEvents.length === 0 ? <tr><td colSpan={4} className="p-5 text-center text-slate-400">Los nuevos accesos aparecerán aquí.</td></tr> : loginEvents.slice(0, 30).map(event => <tr key={event.id}><td className="p-3 whitespace-nowrap">{new Date(event.occurredAt).toLocaleString('es-CL')}</td><td className="p-3">{event.actorEmail}</td><td className="p-3">{event.role}</td><td className="p-3">{event.recentlyReactivated ? <span className="rounded-full bg-amber-50 px-2 py-1 font-bold text-amber-700">Cuenta reactivada recientemente</span> : <span className="text-emerald-700">Normal</span>}</td></tr>)}</tbody></table>
+            <p className="border-t border-slate-100 p-3 text-[10px] text-slate-500">Estos metadatos se conservan por 12 meses y se eliminan al aplicar la política de retención.</p>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
             <div className="bg-slate-50 px-4 py-3 font-bold text-sm text-slate-800">Matriz de permisos por rol</div>
             <table className="w-full text-left text-[11px]"><thead className="border-t border-slate-200 bg-slate-50 text-slate-500 uppercase"><tr><th className="p-3">Rol</th><th className="p-3">Ver</th><th className="p-3">Crear</th><th className="p-3">Editar</th><th className="p-3">Eliminar</th><th className="p-3">Exportar</th></tr></thead><tbody className="divide-y divide-slate-100">{Object.entries(ROLE_PERMISSION_SUMMARY).map(([role, permissions]) => <tr key={role}><td className="p-3 font-bold text-slate-800">{role}</td><td className="p-3">{permissions.view}</td><td className="p-3">{permissions.create}</td><td className="p-3">{permissions.edit}</td><td className="p-3">{permissions.delete}</td><td className="p-3">{permissions.export}</td></tr>)}</tbody></table>
           </div>
@@ -1269,6 +1277,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <select
                     value={staffRole}
                     onChange={(e) => setStaffRole(e.target.value as UserRole)}
+                    disabled={!isAdmin && Boolean(editingStaff)}
                     className="w-full rounded-xl border border-slate-300 p-2.5 text-sm cursor-pointer"
                   >
                     <option value="Convivencia">Encargado de Convivencia</option>
@@ -1277,7 +1286,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     <option value="Orientador">Orientador(a)</option>
                     <option value="Docente">Docente / Profesor</option>
                     <option value="Directivo">Directivo (Director / Inspector Gral.)</option>
-                    <option value="Administrador">Administrador</option>
+                    {isAdmin && <option value="Administrador">Administrador</option>}
                   </select>
                 </div>
                 <div>
