@@ -311,7 +311,7 @@ export const SummonsModule: React.FC<SummonsModuleProps> = ({
                             >
                               <FileDown size={14} />
                             </button>
-                            {(loggedInUser.role === 'Convivencia' || loggedInUser.role === 'Directivo' || loggedInUser.role === 'Administrador') && (
+                            {loggedInUser.role === 'Administrador' && (
                               <button
                                 onClick={() => handleDeleteSummons(s.id)}
                                 className="p-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg text-slate-405 hover:text-rose-600 transition-colors"

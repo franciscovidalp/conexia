@@ -26,6 +26,7 @@ interface SchoolCoexistenceProps {
   activeSchool: SchoolType;
   students: Student[];
   staff: Staff[];
+  loggedInUser: Staff;
   onRefreshStudents: () => void;
   coexistenceCases: CoexistenceCase[];
   onCoexistenceCasesChange: (cases: CoexistenceCase[]) => void;
@@ -35,6 +36,7 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
   activeSchool,
   students,
   staff,
+  loggedInUser,
   onRefreshStudents,
   coexistenceCases,
   onCoexistenceCasesChange
@@ -579,20 +581,20 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                           <div className="text-xs text-slate-500 flex items-center justify-between border-t border-slate-200/60 pt-2.5 mt-2">
                             <span>Informado por: <span className="font-semibold">{c.reporterName}</span></span>
                             <div className="flex gap-3">
-                              <button
+                              {['Administrador', 'Directivo', 'Convivencia'].includes(loggedInUser.role) && <button
                                 onClick={() => handleOpenEditCaseModal(c)}
                                 className="text-primary hover:text-primary-hover flex items-center gap-1 font-bold"
                               >
                                 <Edit size={13} />
                                 <span>Editar</span>
-                              </button>
-                              <button
+                              </button>}
+                              {loggedInUser.role === 'Administrador' && <button
                                 onClick={() => handleDeleteCase(c.id, c.type)}
                                 className="text-red-650 hover:text-red-800 flex items-center gap-1 font-bold"
                               >
                                 <Trash2 size={13} />
                                 <span>Eliminar</span>
-                              </button>
+                              </button>}
                               <button
                                 onClick={() => handleExportPDF(c)}
                                 className="text-slate-600 hover:text-slate-900 flex items-center gap-1 font-bold"

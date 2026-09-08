@@ -309,6 +309,7 @@ function App() {
               activeSchool={activeSchool}
               students={students}
               staff={staff}
+              loggedInUser={loggedInUser}
               onRefreshStudents={refreshStudentsState}
               coexistenceCases={coexistenceCases}
               onCoexistenceCasesChange={setCoexistenceCases}
@@ -332,6 +333,7 @@ function App() {
               students={students}
               activities={activities}
               onActivitiesChange={setActivities}
+              loggedInUser={loggedInUser}
             />
           )}
 
@@ -390,6 +392,7 @@ function App() {
               objectives={managementObjectives}
               onObjectivesChange={setManagementObjectives}
               activities={activities}
+              loggedInUser={loggedInUser}
             />
           )}
 

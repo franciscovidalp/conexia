@@ -17,7 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { Student, Activity, SchoolType, ActivityStatus, AudienceType } from '../types';
+import type { Student, Staff, Activity, SchoolType, ActivityStatus, AudienceType } from '../types';
 import { exportActivityPDF, exportAllActivitiesReportPDF } from '../lib/pdfCoexistence';
 import toast from 'react-hot-toast';
 
@@ -26,13 +26,15 @@ interface SchoolActivitiesProps {
   students: Student[];
   activities: Activity[];
   onActivitiesChange: (activities: Activity[]) => void;
+  loggedInUser: Staff;
 }
 
 export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
   activeSchool,
   students,
   activities: cachedActivities,
-  onActivitiesChange
+  onActivitiesChange,
+  loggedInUser
 }) => {
   const [activities, setActivities] = useState<Activity[]>(cachedActivities);
   const [filterStatus, setFilterStatus] = useState<ActivityStatus | 'Todos'>('Todos');
@@ -371,20 +373,20 @@ export const SchoolActivities: React.FC<SchoolActivitiesProps> = ({
                   </div>
                   
                   <div className="flex gap-2">
-                    <button
+                    {loggedInUser.role !== 'Docente' && <button
                       onClick={() => handleOpenEditModal(act)}
                       className="text-primary hover:underline flex items-center gap-0.5 text-xs font-bold"
                       title="Editar Planificación"
                     >
                       <Edit size={13} />
-                    </button>
-                    <button
+                    </button>}
+                    {loggedInUser.role === 'Administrador' && <button
                       onClick={() => handleDeleteActivity(act.id)}
                       className="text-red-650 hover:underline flex items-center gap-0.5 text-xs font-bold"
                       title="Eliminar Actividad"
                     >
                       <Trash2 size={13} />
-                    </button>
+                    </button>}
                     <button
                       onClick={() => handleExportIndividual(act)}
                       className="text-slate-500 hover:text-primary flex items-center gap-1 text-xs font-semibold transition-colors cursor-pointer"

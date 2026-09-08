@@ -3,7 +3,7 @@ import {
   ClipboardList, Plus, FileDown, Trash2, Edit, CheckCircle, 
   Sparkles, BookOpen, Clock
 } from 'lucide-react';
-import type { ManagementObjective, Activity, SchoolType } from '../types';
+import type { ManagementObjective, Activity, SchoolType, Staff } from '../types';
 import { dbService } from '../firebase';
 import { exportManagementObjectivesReportPDF } from '../lib/pdfCoexistence';
 import toast from 'react-hot-toast';
@@ -13,13 +13,15 @@ interface ManagementModuleProps {
   objectives: ManagementObjective[];
   onObjectivesChange: (objs: ManagementObjective[]) => void;
   activities: Activity[];
+  loggedInUser: Staff;
 }
 
 export const ManagementModule: React.FC<ManagementModuleProps> = ({
   activeSchool,
   objectives,
   onObjectivesChange,
-  activities
+  activities,
+  loggedInUser
 }) => {
   const [categoryFilter, setCategoryFilter] = useState<string>('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -279,13 +281,13 @@ export const ManagementModule: React.FC<ManagementModuleProps> = ({
 
                 {/* Bottom actions within card */}
                 <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
-                  <button
+                  {loggedInUser.role === 'Administrador' && <button
                     onClick={() => handleOpenEditModal(obj)}
                     className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
                     title="Editar"
                   >
                     <Edit size={13} />
-                  </button>
+                  </button>}
                   <button
                     onClick={() => handleDelete(obj.id)}
                     className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 cursor-pointer"

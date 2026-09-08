@@ -322,12 +322,12 @@ export const DerivationsModule: React.FC<DerivationsModuleProps> = ({
                         </span>
                       </td>
                       <td className="px-6 py-4.5 text-right space-x-2">
-                        <button
+                        {loggedInUser.role === 'Administrador' && <button
                           onClick={() => handleSelectReferral(ref)}
                           className="text-xs font-bold text-primary bg-primary-light/50 hover:bg-primary-light hover:text-primary-hover px-3 py-1.5 rounded-lg border border-primary/5 transition-all cursor-pointer"
                         >
                           Actualizar
-                        </button>
+                        </button>}
                         <button
                           onClick={() => {
                             const student = students.find(s => s.id === ref.studentId);
