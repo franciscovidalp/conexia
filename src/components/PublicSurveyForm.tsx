@@ -440,7 +440,7 @@ export const PublicSurveyForm: React.FC<PublicSurveyFormProps> = ({
         <div className="flex gap-2 items-start text-[9px] text-slate-500 leading-normal border-t border-slate-800/40 pt-4">
           <Info size={12} className="text-indigo-500/60 shrink-0 mt-0.5" />
           <span>
-            Declaración de privacidad: las respuestas son confidenciales y solo pueden ser revisadas por personal autorizado del establecimiento. Este instrumento orienta apoyos preventivos; no constituye por sí solo un diagnóstico clínico ni debe utilizarse como fundamento único de una sanción.
+            <strong>Aviso de privacidad:</strong> {resolvedSchoolName || 'el establecimiento'} es responsable del uso educativo de estas respuestas. Se recopilan para orientar apoyos preventivos y serán accesibles únicamente a personal autorizado según su función. Puedes solicitar información, acceso, rectificación o eliminación a través del canal oficial del establecimiento, cuando corresponda legalmente. Este resultado no constituye por sí solo un diagnóstico clínico ni puede utilizarse como fundamento único de una sanción. No respondas si no recibiste información sobre la finalidad y autorización aplicable de parte del establecimiento.
           </span>
         </div>
 

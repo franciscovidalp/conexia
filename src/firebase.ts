@@ -1,11 +1,9 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { 
   initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
+  memoryLocalCache,
   collection, 
   getDocs, 
-  getDocsFromCache,
   getDoc,
   updateDoc, 
   doc, 
@@ -47,9 +45,9 @@ if (hasFirebaseConfig) {
   try {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
+      // Student, psychosocial and clinical records must not remain in IndexedDB
+      // on shared school computers after the browser session ends.
+      localCache: memoryLocalCache()
     });
     auth = getAuth(app);
     useMock = false;
@@ -317,22 +315,14 @@ const saveLocalData = <T>(key: string, data: T[]) => {
   localStorage.setItem(`conexia_${key}`, JSON.stringify(data));
 };
 
-const studentCacheKey = (school: SchoolType) =>
-  `conexia_students_server_sync_${encodeURIComponent(school)}`;
-
-const localDayKey = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
+const studentSessionCache = new Map<SchoolType, Student[]>();
 
 const invalidateStudentCache = (school?: SchoolType) => {
   if (school) {
-    localStorage.removeItem(studentCacheKey(school));
+    studentSessionCache.delete(school);
     return;
   }
-  Object.keys(localStorage)
-    .filter(key => key.startsWith('conexia_students_server_sync_'))
-    .forEach(key => localStorage.removeItem(key));
+  studentSessionCache.clear();
 };
 
 export const dbService = {
@@ -475,31 +465,15 @@ export const dbService = {
   async getStudents(school: SchoolType, forceRefresh = false): Promise<Student[]> {
     if (!useMock) {
       try {
+        if (!forceRefresh) {
+          const cachedStudents = studentSessionCache.get(school);
+          if (cachedStudents) return cachedStudents;
+        }
         const q = query(collection(db, 'students'), where('school', '==', school));
-        const cacheMetadataRaw = localStorage.getItem(studentCacheKey(school));
-        let cacheMetadata: { day: string; count: number } | null = null;
-        try {
-          cacheMetadata = cacheMetadataRaw ? JSON.parse(cacheMetadataRaw) : null;
-        } catch {
-          cacheMetadata = null;
-        }
-        const alreadySyncedToday = cacheMetadata?.day === localDayKey();
-        if (!forceRefresh && alreadySyncedToday) {
-          try {
-            const cachedSnap = await getDocsFromCache(q);
-            if (cachedSnap.size === cacheMetadata?.count) {
-              return cachedSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
-            }
-          } catch {
-            // A cache miss falls through to the server.
-          }
-        }
         const snap = await getDocs(q);
-        localStorage.setItem(studentCacheKey(school), JSON.stringify({
-          day: localDayKey(),
-          count: snap.size
-        }));
-        return snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+        const students = snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+        studentSessionCache.set(school, students);
+        return students;
       } catch (err) {
         console.error("Firestore error loading students:", err);
         throw err;
@@ -1409,6 +1383,7 @@ export const dbService = {
   },
 
   async signOut(): Promise<void> {
+    invalidateStudentCache();
     if (!useMock && auth) {
       try {
         await fbSignOut(auth);

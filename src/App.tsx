@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { dbService } from './firebase';
 import type { Student, Staff, SchoolType, UserRole, School, CoexistenceCase, Activity, PsychosocialCase, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from './types';
@@ -104,7 +104,9 @@ function App() {
         dbService.getStaff(school),
         dbService.getCoexistenceCases(school, 1000),
         dbService.getActivities(school),
-        dbService.getPsychosocialCases(school),
+        ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'].includes(loggedInUser.role)
+          ? dbService.getPsychosocialCases(school)
+          : Promise.resolve([]),
         dbService.getRiceProtocols(school),
         dbService.getManagementObjectives(school),
         dbService.getExternalReferrals(school),
@@ -158,11 +160,49 @@ function App() {
     }
   };
 
+  const clearSensitiveState = useCallback(() => {
+    setStudents([]);
+    setStaff([]);
+    setCoexistenceCases([]);
+    setActivities([]);
+    setPsychosocialCases([]);
+    setRiceProtocols([]);
+    setManagementObjectives([]);
+    setExternalReferrals([]);
+    setSummonsList([]);
+  }, []);
+
   const handleLogout = async () => {
     await dbService.signOut();
+    clearSensitiveState();
     setLoggedInUser(null);
     toast.success('Sesión cerrada correctamente.');
   };
+
+  useEffect(() => {
+    if (!loggedInUser) return;
+
+    const inactivityLimitMs = 15 * 60 * 1000;
+    let inactivityTimer: ReturnType<typeof setTimeout>;
+    const expireSession = async () => {
+      await dbService.signOut();
+      clearSensitiveState();
+      setLoggedInUser(null);
+      toast.error('La sesión se cerró después de 15 minutos de inactividad para proteger la información.');
+    };
+    const resetInactivityTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(expireSession, inactivityLimitMs);
+    };
+    const activityEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(eventName => window.addEventListener(eventName, resetInactivityTimer, { passive: true }));
+    resetInactivityTimer();
+
+    return () => {
+      clearTimeout(inactivityTimer);
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, resetInactivityTimer));
+    };
+  }, [loggedInUser, clearSensitiveState]);
 
   // Public survey link bypass (check parameters)
   const urlParams = new URLSearchParams(window.location.search);
@@ -286,6 +326,7 @@ function App() {
             <ClimateDiagnosisModule
               activeSchool={activeSchool}
               students={students}
+              loggedInUser={loggedInUser}
             />
           )}
 

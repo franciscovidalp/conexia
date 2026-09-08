@@ -157,6 +157,8 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
+  const canAccessClinicalData = loggedInUser != null &&
+    ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'].includes(loggedInUser.role);
   const menuItems = [
     { id: 'climate', label: 'Diagnósticos', icon: BarChart3 },
     { id: 'management', label: 'Plan de Gestión', icon: ClipboardList },
@@ -165,7 +167,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'coexistence', label: 'Convivencia Pro', icon: ShieldAlert },
     { id: 'summons', label: 'Citaciones', icon: Mail },
     { id: 'protocols', label: 'Protocolos RICE', icon: ClipboardCheck },
-    { id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity },
+    ...(canAccessClinicalData ? [{ id: 'psychosocial', label: 'Dupla Psicosocial', icon: Activity }] : []),
     { id: 'derivations', label: 'Derivación Externa', icon: Network },
     { id: 'messaging', label: 'Mensajería', icon: MessageSquare },
     { id: 'settings', label: 'Ajustes y Carga', icon: Settings }

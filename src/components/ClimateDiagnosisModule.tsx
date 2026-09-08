@@ -16,13 +16,14 @@ import {
   Network
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { Student, SchoolType, PsychosocialCase } from '../types';
+import type { Student, Staff, SchoolType, PsychosocialCase } from '../types';
 import { SURVEY_TEMPLATES } from '../lib/surveyTemplates';
 import toast from 'react-hot-toast';
 
 interface ClimateDiagnosisModuleProps {
   activeSchool: SchoolType;
   students: Student[];
+  loggedInUser: Staff | null;
 }
 
 interface DIAResponse {
@@ -38,7 +39,8 @@ interface DIAResponse {
 
 export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   activeSchool,
-  students
+  students,
+  loggedInUser
 }) => {
   const [selectedSurveyId, setSelectedSurveyId] = useState(SURVEY_TEMPLATES[0].id);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
@@ -93,6 +95,12 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
   }, [selectedCourse, selectedSurveyId, activeSchool]);
 
   const checkReferredStatus = async () => {
+    const canReadPsychosocialCases = ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador']
+      .includes(loggedInUser?.role || '');
+    if (!canReadPsychosocialCases) {
+      setReferredStudentIds([]);
+      return;
+    }
     try {
       const cases = await dbService.getPsychosocialCases(activeSchool);
       if (cases) {

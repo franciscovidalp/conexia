@@ -32,7 +32,7 @@ service cloud.firestore {
     }
 
     function isClinicalTeam() {
-      return getRole() in ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'];
+      return isAuthenticated() && getRole() in ['Administrador', 'Psicólogo', 'Trabajador Social', 'Orientador'];
     }
 
     function validPublicSurveyAnswer(answerId) {
@@ -157,13 +157,13 @@ service cloud.firestore {
     // 7. Psychosocial Cases (Sensitive Clinical Data)
     match /psychosocial_cases/{caseId} {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
       allow create: if isAuthenticated() && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        (getRole() in ['Administrador', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
       allow update: if isAuthenticated() && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
       allow delete: if isAuthenticated() && belongsToSchool(resource.data.school) &&
-        (getRole() in ['Administrador', 'Directivo', 'Convivencia', 'Orientador', 'Psicólogo', 'Trabajador Social']);
+        isClinicalTeam();
     }
 
     // 8. Clinical Sessions (Highly Sensitive Medical/Therapeutic Notes)
