@@ -19,6 +19,7 @@ import {
 import { dbService } from '../firebase';
 import type { Student, Staff, CoexistenceCase, SchoolType, CaseType, CaseStatus } from '../types';
 import { exportCoexistenceCasePDF } from '../lib/pdfCoexistence';
+import { maskRut } from '../lib/privacy';
 import toast from 'react-hot-toast';
 
 interface SchoolCoexistenceProps {
@@ -436,7 +437,7 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                               {student.firstName} {student.lastName}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {student.grade} • RUT: {student.rut}
+                              {student.grade} • RUT: {maskRut(student.rut)}
                             </div>
                           </div>
                         </div>
@@ -473,7 +474,7 @@ export const SchoolCoexistence: React.FC<SchoolCoexistenceProps> = ({
                   <div>
                     <h3 className="font-extrabold text-lg text-slate-800">{selectedStudent.firstName} {selectedStudent.lastName}</h3>
                     <p className="text-xs text-slate-500">
-                      RUT: <span className="font-mono">{selectedStudent.rut}</span> | Curso: <span className="font-semibold">{selectedStudent.grade}</span>
+                      RUT: <span className="font-mono">{maskRut(selectedStudent.rut)}</span> | Curso: <span className="font-semibold">{selectedStudent.grade}</span>
                     </p>
                   </div>
                 </div>

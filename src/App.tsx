@@ -204,6 +204,19 @@ function App() {
     };
   }, [loggedInUser, clearSensitiveState]);
 
+  useEffect(() => {
+    if (!loggedInUser) return;
+    const auditExport = (event: Event) => {
+      const detail = (event as CustomEvent<{ action: string; school: string; resourceType: string }>).detail;
+      if (!detail || detail.school === 'General') return;
+      void dbService.recordAuditEvent(detail.action, detail.school, detail.resourceType, {
+        classification: 'confidential'
+      });
+    };
+    window.addEventListener('conexia:audit', auditExport);
+    return () => window.removeEventListener('conexia:audit', auditExport);
+  }, [loggedInUser]);
+
   // Public survey link bypass (check parameters)
   const urlParams = new URLSearchParams(window.location.search);
   const surveyIdParam = urlParams.get('surveyId');

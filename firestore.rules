@@ -266,6 +266,27 @@ service cloud.firestore {
       );
     }
 
+    // Immutable security audit trail. Clients may append their own actions but
+    // cannot alter or erase history; only administrators may review it.
+    match /audit_logs/{eventId} {
+      allow read: if isAdmin() && belongsToSchool(resource.data.school);
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly([
+          'id', 'actorUid', 'actorEmail', 'action', 'school', 'resourceType', 'metadata', 'occurredAt'
+        ]) &&
+        request.resource.data.id == eventId &&
+        request.resource.data.actorUid == request.auth.uid &&
+        request.resource.data.actorEmail == request.auth.token.email &&
+        belongsToSchool(request.resource.data.school) &&
+        request.resource.data.action is string &&
+        request.resource.data.resourceType is string &&
+        request.resource.data.metadata is map &&
+        request.resource.data.occurredAt is number &&
+        request.resource.data.occurredAt >= request.time.toMillis() - 60000 &&
+        request.resource.data.occurredAt <= request.time.toMillis() + 60000;
+      allow update, delete: if false;
+    }
+
     // 12. Rice Protocols
     match /rice_protocols/{protocolId} {
       allow read: if isAuthenticated() && belongsToSchool(resource.data.school);

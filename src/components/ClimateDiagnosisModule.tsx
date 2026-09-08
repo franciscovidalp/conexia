@@ -18,6 +18,7 @@ import {
 import { dbService } from '../firebase';
 import type { Student, Staff, SchoolType, PsychosocialCase } from '../types';
 import { SURVEY_TEMPLATES } from '../lib/surveyTemplates';
+import { maskRut } from '../lib/privacy';
 import toast from 'react-hot-toast';
 
 interface ClimateDiagnosisModuleProps {
@@ -964,7 +965,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                     <div className="space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
                       <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-3.5 relative">
                         <p className="font-black text-slate-800 text-sm leading-tight">{sData.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">RUT: {sData.id}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">RUT: {maskRut(sData.id)}</p>
                         
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {isStar && <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 font-extrabold text-[8px] px-2 py-0.2 rounded-full">ESTRELLA</span>}
@@ -1421,7 +1422,7 @@ export const ClimateDiagnosisModule: React.FC<ClimateDiagnosisModuleProps> = ({
                       >
                         <div className="space-y-1">
                           <p className="font-bold text-slate-800">{alert.studentName}</p>
-                          <p className="text-[10px] text-slate-500">RUT: {alert.studentId} | Curso: {selectedCourse}</p>
+                          <p className="text-[10px] text-slate-500">RUT: {maskRut(alert.studentId)} | Curso: {selectedCourse}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className={`inline-block text-[9px] font-extrabold px-2 py-0.2 border rounded-full ${
                               alert.riskStatus === 'Crítico' 

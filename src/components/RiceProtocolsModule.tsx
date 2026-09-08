@@ -7,6 +7,7 @@ import {
 import type { Student, Staff, SchoolType, RiceProtocol, ProtocolStep } from '../types';
 import { dbService } from '../firebase';
 import { exportRiceProtocolPDF } from '../lib/pdfCoexistence';
+import { maskRut } from '../lib/privacy';
 import toast from 'react-hot-toast';
 
 interface RiceProtocolsModuleProps {
@@ -582,7 +583,7 @@ export const RiceProtocolsModule: React.FC<RiceProtocolsModuleProps> = ({
                     <tr key={p.id} className="hover:bg-slate-550/10 transition-colors">
                       <td className="px-6 py-4.5">
                         <div className="font-bold text-slate-800">{p.studentName}</div>
-                        <div className="text-xs text-slate-450">{p.studentId} • {p.grade}</div>
+                        <div className="text-xs text-slate-450">{maskRut(p.studentId)} • {p.grade}</div>
                       </td>
                       <td className="px-6 py-4.5">
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/50">

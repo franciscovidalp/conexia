@@ -18,7 +18,7 @@ import {
   signInWithEmailAndPassword, 
   signOut as fbSignOut 
 } from 'firebase/auth';
-import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from './types';
+import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog } from './types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -325,7 +325,41 @@ const invalidateStudentCache = (school?: SchoolType) => {
   studentSessionCache.clear();
 };
 
+const recordAuditEvent = async (
+  action: string,
+  school: string,
+  resourceType: string,
+  metadata: Record<string, string | number | boolean> = {}
+) => {
+  if (useMock || !auth?.currentUser) return;
+  const eventId = crypto.randomUUID();
+  try {
+    await setDoc(doc(db, 'audit_logs', eventId), {
+      id: eventId,
+      actorUid: auth.currentUser.uid,
+      actorEmail: auth.currentUser.email || '',
+      action,
+      school,
+      resourceType,
+      metadata,
+      occurredAt: Date.now()
+    });
+  } catch (error) {
+    // Auditing must be visible to operators without corrupting the completed action.
+    console.error('No fue posible registrar el evento de auditoría:', error);
+  }
+};
+
 export const dbService = {
+  recordAuditEvent,
+  async getAuditLogs(school: SchoolType): Promise<AuditLog[]> {
+    if (useMock) return [];
+    const snap = await getDocs(query(collection(db, 'audit_logs'), where('school', '==', school)));
+    return snap.docs
+      .map(item => ({ id: item.id, ...item.data() } as AuditLog))
+      .sort((a, b) => b.occurredAt - a.occurredAt)
+      .slice(0, 200);
+  },
   // --- FIRESTORE SEEDER ---
   async seedFirestoreData(): Promise<void> {
     if (useMock) return;
@@ -558,6 +592,7 @@ export const dbService = {
           await batch.commit();
         }
         invalidateStudentCache(schoolName);
+        await recordAuditEvent('MATRICULA_IMPORTADA', schoolName, 'students', { records: count });
       } catch (e) {
         console.error("Could not sync CSV to Firestore:", e);
         throw e;
@@ -1439,6 +1474,11 @@ export const dbService = {
       const batch = writeBatch(db);
       accesses.forEach(access => batch.set(doc(db, 'survey_access', access.id), access));
       await batch.commit();
+      await recordAuditEvent('ENLACES_CUESTIONARIO_GENERADOS', school, 'survey_access', {
+        surveyId,
+        grade,
+        links: accesses.length
+      });
       return accesses;
     }
     const all = getLocalData<SurveyAccess>('survey_access', []);
@@ -2015,6 +2055,10 @@ export const dbService = {
       }
 
       invalidateStudentCache(school);
+      await recordAuditEvent('MATRICULA_ELIMINADA', school, 'school_enrollment', {
+        deletedRecords: deleteRefs.length,
+        unlinkedActivities: activityUpdates.length
+      });
       return { deleted: deleteRefs.length, updatedActivities: activityUpdates.length };
     }
 

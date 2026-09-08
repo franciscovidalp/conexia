@@ -1,6 +1,26 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { CoexistenceCase, Student, Staff, Activity, PsychosocialCase, ClinicalSession, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons } from '../types';
+import { safePersonFileName } from './privacy';
+
+const saveProtectedPdf = (doc: jsPDF, fileName: string, school: string) => {
+  const pages = doc.getNumberOfPages();
+  for (let page = 1; page <= pages; page += 1) {
+    doc.setPage(page);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(185, 28, 28);
+    doc.text('CONFIDENCIAL · DATOS PERSONALES · USO INTERNO AUTORIZADO', 105, 288, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Página ${page} de ${pages} · Emitido ${new Date().toLocaleString('es-CL')}`, 105, 293, { align: 'center' });
+  }
+  doc.save(fileName);
+  window.dispatchEvent(new CustomEvent('conexia:audit', {
+    detail: { action: 'DOCUMENTO_CONFIDENCIAL_EXPORTADO', school, resourceType: 'pdf' }
+  }));
+};
 
 // Helper to load Colegio BioBío logo asynchronously if applicable
 const loadBioBioLogo = (school: string): Promise<HTMLImageElement | undefined> => {
@@ -316,7 +336,7 @@ export const exportCoexistenceCasePDF = (
         logoImg
       );
 
-      doc.save(`conexia_caso_${c.id}.pdf`);
+      saveProtectedPdf(doc, `conexia_caso_${c.id}.pdf`, c.school);
       resolve();
     });
   });
@@ -428,7 +448,7 @@ export const exportActivityPDF = (activity: Activity, students: Student[]): Prom
         logoImg
       );
 
-      doc.save(`conexia_actividad_${activity.id}.pdf`);
+      saveProtectedPdf(doc, `conexia_actividad_${activity.id}.pdf`, activity.school);
       resolve();
     });
   });
@@ -575,7 +595,7 @@ export const exportPsychosocialReportPDF = (
         logoImg
       );
 
-      doc.save(`conexia_clinico_${student.rut}.pdf`);
+      saveProtectedPdf(doc, `conexia_clinico_${safePersonFileName(student.firstName, student.lastName)}.pdf`, c.school);
       resolve();
     });
   });
@@ -637,7 +657,7 @@ export const exportAllActivitiesReportPDF = (activities: Activity[]): Promise<vo
         }
       });
 
-      doc.save('conexia_reporte_actividades_general.pdf');
+      saveProtectedPdf(doc, 'conexia_reporte_actividades_general.pdf', activities[0]?.school || 'General');
       resolve();
     });
   });
@@ -872,7 +892,7 @@ export const exportRiceProtocolPDF = (
       
       drawSignatures(doc, names, roles, nextY + 25, p.school, title, themeColor, logoImg);
 
-      doc.save(`conexia_protocolo_${p.id}.pdf`);
+      saveProtectedPdf(doc, `conexia_protocolo_${p.id}.pdf`, p.school);
       resolve();
     });
   });
@@ -967,7 +987,7 @@ export const exportManagementObjectivesReportPDF = (
         });
       }
 
-      doc.save(`conexia_plan_gestion_${school.replace(/\s+/g, '_')}.pdf`);
+      saveProtectedPdf(doc, `conexia_plan_gestion_${school.replace(/\s+/g, '_')}.pdf`, school);
       resolve();
     });
   });
@@ -1101,7 +1121,7 @@ export const exportExternalReferralPDF = (
 
       drawSignatures(doc, names, roles, nextY + 10, referral.school, title, themeColor, logoImg);
 
-      doc.save(`conexia_derivacion_${student.rut}.pdf`);
+      saveProtectedPdf(doc, `conexia_derivacion_${safePersonFileName(student.firstName, student.lastName)}.pdf`, referral.school);
       resolve();
     });
   });
@@ -1215,7 +1235,7 @@ export const exportParentSummonsPDF = (
         logoImg
       );
 
-      doc.save(`conexia_citacion_${student.lastName.replace(/\s+/g, '_')}_${summons.date}.pdf`);
+      saveProtectedPdf(doc, `conexia_citacion_${safePersonFileName(student.firstName, student.lastName)}_${summons.date}.pdf`, summons.school);
       resolve();
     };
 
@@ -1236,4 +1256,3 @@ export const exportParentSummonsPDF = (
     }
   });
 };
-

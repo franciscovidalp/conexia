@@ -10,10 +10,11 @@ import {
   Search,
   CheckCircle,
   HelpCircle,
-  Trash2
+  Trash2,
+  ShieldCheck
 } from 'lucide-react';
 import { dbService } from '../firebase';
-import type { School, Student, SchoolType, Staff, UserRole } from '../types';
+import type { School, Student, SchoolType, Staff, UserRole, AuditLog } from '../types';
 import toast from 'react-hot-toast';
 
 import { THEMES } from '../lib/themes';
@@ -44,7 +45,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   setActiveTheme,
   loggedInUser
 }) => {
-  const [activeTab, setActiveTab] = useState<'themes' | 'schools' | 'students' | 'staff'>('themes');
+  const [activeTab, setActiveTab] = useState<'themes' | 'schools' | 'students' | 'staff' | 'security'>('themes');
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   const isAdmin = loggedInUser?.role === 'Administrador';
   const isDirectivo = loggedInUser?.role === 'Directivo';
@@ -111,6 +114,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   useEffect(() => {
     loadStaffList();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'security' || !isAdmin) return;
+    setAuditLoading(true);
+    dbService.getAuditLogs(activeSchool)
+      .then(setAuditLogs)
+      .catch(() => toast.error('No fue posible cargar la bitácora de seguridad.'))
+      .finally(() => setAuditLoading(false));
+  }, [activeTab, activeSchool, isAdmin]);
 
   // ----------------------------------------------------
   // SCHOOL METHODS
@@ -541,6 +553,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             4. Control de Usuarios (Personal)
           </button>
         )}
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`pb-3 px-4 text-sm font-semibold transition-all relative cursor-pointer ${
+              activeTab === 'security' ? 'text-primary border-b-2 border-primary font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            5. Privacidad y Auditoría
+          </button>
+        )}
       </div>
 
       {/* ---------------------------------------------------- */}
@@ -937,6 +959,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                     </tr>
                   ))
                 )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'security' && isAdmin && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5 animate-in fade-in">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700"><ShieldCheck size={22} /></div>
+            <div>
+              <h3 className="font-bold text-lg text-slate-800">Bitácora inmutable de seguridad</h3>
+              <p className="text-xs text-slate-500">Últimos eventos sensibles de {activeSchool}. Los registros no pueden editarse ni eliminarse desde la aplicación.</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 uppercase"><tr><th className="p-3">Fecha</th><th className="p-3">Usuario</th><th className="p-3">Acción</th><th className="p-3">Recurso</th><th className="p-3">Detalle</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {auditLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Cargando bitácora…</td></tr> : auditLogs.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Aún no hay eventos registrados para este colegio.</td></tr> : auditLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-slate-50"><td className="p-3 whitespace-nowrap">{new Date(log.occurredAt).toLocaleString('es-CL')}</td><td className="p-3">{log.actorEmail}</td><td className="p-3 font-bold text-slate-700">{log.action.replaceAll('_', ' ')}</td><td className="p-3">{log.resourceType}</td><td className="p-3 text-slate-500">{Object.entries(log.metadata).map(([key, value]) => `${key}: ${value}`).join(' · ') || '—'}</td></tr>
+                ))}
               </tbody>
             </table>
           </div>

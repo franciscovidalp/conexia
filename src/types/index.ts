@@ -263,3 +263,14 @@ export interface ParentSummons {
   school: SchoolType;
   createdAt: string;
 }
+
+export interface AuditLog {
+  id: string;
+  actorUid: string;
+  actorEmail: string;
+  action: string;
+  school: SchoolType;
+  resourceType: string;
+  metadata: Record<string, string | number | boolean>;
+  occurredAt: number;
+}
