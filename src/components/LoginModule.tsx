@@ -23,12 +23,35 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClos
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const getLoginThrottle = () => {
+    try {
+      return JSON.parse(sessionStorage.getItem('conexia_login_throttle') || '{"attempts":0,"lockedUntil":0}') as { attempts: number; lockedUntil: number };
+    } catch {
+      return { attempts: 0, lockedUntil: 0 };
+    }
+  };
+
+  const registerFailedAttempt = () => {
+    const current = getLoginThrottle();
+    const previousAttempts = current.lockedUntil > 0 && current.lockedUntil <= Date.now() ? 0 : current.attempts;
+    const attempts = previousAttempts + 1;
+    const lockedUntil = attempts >= 5 ? Date.now() + 15 * 60 * 1000 : 0;
+    sessionStorage.setItem('conexia_login_throttle', JSON.stringify({ attempts, lockedUntil }));
+    return { attempts, lockedUntil };
+  };
+
   const handleRutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setRut(e.target.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const throttle = getLoginThrottle();
+    if (throttle.lockedUntil > Date.now()) {
+      const minutes = Math.max(1, Math.ceil((throttle.lockedUntil - Date.now()) / 60000));
+      toast.error(`Demasiados intentos. Intenta nuevamente en ${minutes} minutos.`);
+      return;
+    }
     
     if (!rut.trim()) {
       toast.error('Por favor, ingrese su RUT o correo.');
@@ -42,13 +65,30 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClos
     setSubmitting(true);
     try {
       const matchedStaff = await dbService.signIn(rut, password);
+      sessionStorage.removeItem('conexia_login_throttle');
       onLoginSuccess(matchedStaff.school, matchedStaff.role, matchedStaff);
       toast.success(`Sesión iniciada: Bienvenido(a), ${matchedStaff.firstName} ${matchedStaff.lastName}`);
-    } catch (err: any) {
-      toast.error(err.message || 'Error al iniciar sesión.');
+    } catch (err: unknown) {
+      const failed = registerFailedAttempt();
+      if (failed.lockedUntil) toast.error('Acceso bloqueado durante 15 minutos por intentos reiterados.');
+      else toast.error(err instanceof Error ? err.message : 'No fue posible iniciar sesión.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handlePasswordReset = async () => {
+    const email = rut.trim().toLowerCase();
+    if (!email.includes('@')) {
+      toast.error('Ingresa tu correo electrónico en el campo de acceso para recuperar la contraseña.');
+      return;
+    }
+    try {
+      await dbService.requestPasswordReset(email);
+    } catch (error) {
+      console.error('Password reset request completed with an error:', error);
+    }
+    toast.success('Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.');
   };
 
 
@@ -145,6 +185,9 @@ export const LoginModule: React.FC<LoginModuleProps> = ({ onLoginSuccess, onClos
           >
             <span>{submitting ? 'Iniciando Sesión...' : 'Iniciar Sesión'}</span>
             {!submitting && <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />}
+          </button>
+          <button type="button" onClick={handlePasswordReset} className="w-full text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer">
+            Olvidé mi contraseña
           </button>
  
         </form>

@@ -17,7 +17,8 @@ import {
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
-  signOut as fbSignOut 
+  signOut as fbSignOut,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog, PrivacySettings, SecurityIncident, LoginEvent } from './types';
 
@@ -353,6 +354,10 @@ const recordAuditEvent = async (
 
 export const dbService = {
   recordAuditEvent,
+  async requestPasswordReset(email: string): Promise<void> {
+    if (useMock || !auth) throw new Error('La recuperación solo está disponible en el servicio en línea.');
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+  },
   async getAuditLogs(school: SchoolType): Promise<AuditLog[]> {
     if (useMock) return [];
     const snap = await getDocs(query(collection(db, 'audit_logs'), where('school', '==', school)));
@@ -1517,6 +1522,10 @@ export const dbService = {
         }
         return matchedStaff;
       } catch (err: unknown) {
+        const firebaseCode = (err as { code?: string })?.code;
+        if (firebaseCode?.startsWith('auth/')) {
+          throw new Error('Correo o contraseña incorrectos. Verifica tus datos e inténtalo nuevamente.');
+        }
         if (err instanceof Error) throw err;
         throw new Error('No fue posible iniciar sesión.');
       }
