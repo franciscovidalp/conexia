@@ -363,19 +363,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     }
   };
 
-  const handleDeleteStaff = async (id: string, name: string) => {
-    if (loggedInUser && (id === loggedInUser.id || id === loggedInUser.rut || loggedInUser.email === id)) {
-      toast.error('No puedes eliminar tu propia cuenta de administrador activa.');
+  const handleToggleStaffActive = async (staff: Staff) => {
+    if (loggedInUser && staff.id === loggedInUser.id) {
+      toast.error('No puedes suspender tu propia cuenta activa.');
       return;
     }
-    if (window.confirm(`¿Seguro que desea eliminar el acceso de ${name}?`)) {
+    const nextActive = staff.active === false;
+    const action = nextActive ? 'reactivar' : 'suspender';
+    if (window.confirm(`¿Seguro que desea ${action} el acceso de ${staff.firstName} ${staff.lastName}?`)) {
       try {
-        await dbService.deleteStaff(id);
-        toast.success('Cuenta de acceso eliminada.');
+        await dbService.setStaffActive(staff, nextActive);
+        toast.success(nextActive ? 'Cuenta reactivada.' : 'Cuenta suspendida y sesiones bloqueadas.');
         loadStaffList();
         if (onRefreshStaff) onRefreshStaff();
-      } catch (err) {
-        toast.error('Error al eliminar funcionario.');
+      } catch {
+        toast.error(`No fue posible ${action} la cuenta.`);
       }
     }
   };
@@ -971,6 +973,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <th className="p-4">RUT</th>
                   <th className="p-4">Correo Electrónico</th>
                   <th className="p-4">Rol / Permisos</th>
+                  <th className="p-4">Estado</th>
                   <th className="p-4">Establecimiento</th>
                   <th className="p-4 text-right">Acciones</th>
                 </tr>
@@ -978,7 +981,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {staffList.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400 italic">No hay funcionarios registrados en el sistema.</td>
+                    <td colSpan={7} className="p-8 text-center text-slate-400 italic">No hay funcionarios registrados en el sistema.</td>
                   </tr>
                 ) : (
                   staffList.map(st => (
@@ -998,6 +1001,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                           {st.role}
                         </span>
                       </td>
+                      <td className="p-4"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${st.active === false ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{st.active === false ? 'Suspendido' : 'Activo'}</span></td>
                       <td className="p-4 text-slate-500 font-semibold">{st.school}</td>
                       <td className="p-4 text-right space-x-2">
                         <button
@@ -1006,12 +1010,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         >
                           Editar
                         </button>
-                        <button
-                          onClick={() => handleDeleteStaff(st.id, `${st.firstName} ${st.lastName}`)}
-                          className="text-red-650 hover:underline font-bold cursor-pointer"
-                        >
-                          Eliminar
-                        </button>
+                        {isAdmin && <button onClick={() => handleToggleStaffActive(st)} className={`${st.active === false ? 'text-emerald-700' : 'text-red-650'} hover:underline font-bold cursor-pointer`}>{st.active === false ? 'Reactivar' : 'Suspender'}</button>}
                       </td>
                     </tr>
                   ))

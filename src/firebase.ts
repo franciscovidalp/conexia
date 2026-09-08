@@ -11,7 +11,8 @@ import {
   where, 
   deleteDoc,
   setDoc,
-  writeBatch
+  writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -730,7 +731,8 @@ export const dbService = {
   async createStaff(staff: Omit<Staff, 'id'>): Promise<Staff> {
     const newStaff: Staff = {
       ...staff,
-      id: staff.rut.trim()
+      id: staff.rut.trim(),
+      active: staff.active ?? true
     };
     if (!useMock) {
       try {
@@ -777,6 +779,31 @@ export const dbService = {
     const all = getLocalData<Staff>('staff', MOCK_STAFF);
     const filtered = all.filter(st => st.id !== id && st.rut !== id);
     saveLocalData('staff', filtered);
+  },
+
+  async setStaffActive(staff: Staff, active: boolean): Promise<void> {
+    if (!auth?.currentUser) throw new Error('Sesión no válida.');
+    const updates: Partial<Staff> = active
+      ? { active: true, suspendedAt: undefined, suspendedBy: undefined }
+      : { active: false, suspendedAt: Date.now(), suspendedBy: auth.currentUser.uid };
+    if (!useMock) {
+      const cleanUpdates = active
+        ? { active: true, suspendedAt: null, suspendedBy: null }
+        : updates;
+      await updateDoc(doc(db, 'staff', staff.id), cleanUpdates);
+      await recordAuditEvent(active ? 'CUENTA_REACTIVADA' : 'CUENTA_SUSPENDIDA', staff.school, 'staff_account', {
+        targetStaffId: staff.id
+      });
+      return;
+    }
+    await this.updateStaff(staff.id, updates);
+  },
+
+  watchStaffActive(staffId: string, onStatus: (active: boolean) => void): () => void {
+    if (useMock || !db) return () => undefined;
+    return onSnapshot(doc(db, 'staff', staffId), snapshot => {
+      onStatus(snapshot.exists() && snapshot.data().active !== false);
+    }, error => console.error('No fue posible verificar el estado de la cuenta:', error));
   },
 
   // --- INCIDENCIAS CRUD (CONVIVENCIA) ---
@@ -1437,6 +1464,10 @@ export const dbService = {
           throw new Error('No existe una ficha de funcionario habilitada para esta cuenta.');
         }
         const matchedStaff = { id: staffDocument.id, ...staffDocument.data() } as Staff;
+        if (matchedStaff.active === false) {
+          await fbSignOut(auth);
+          throw new Error('Esta cuenta se encuentra suspendida. Contacta al administrador del establecimiento.');
+        }
         if (matchedStaff.email.toLowerCase() !== userCredential.user.email?.toLowerCase()) {
           await fbSignOut(auth);
           throw new Error('El correo autenticado no coincide con el perfil autorizado.');
@@ -1481,6 +1512,7 @@ export const dbService = {
     if (!matchedStaff || !demoPassword || checkPassword !== demoPassword) {
       throw new Error('Credenciales de demostración incorrectas.');
     }
+    if (matchedStaff.active === false) throw new Error('Esta cuenta se encuentra suspendida.');
     return matchedStaff;
   },
 

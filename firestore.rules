@@ -12,7 +12,7 @@ service cloud.firestore {
     }
 
     function getRole() {
-      return getUserData().role;
+      return isActiveAccount() ? getUserData().role : 'Suspendido';
     }
 
     function getRut() {
@@ -23,12 +23,20 @@ service cloud.firestore {
       return getUserData().school;
     }
 
+    function isActiveAccount() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        exists(/databases/$(database)/documents/staff/$(getUserData().staffId)) &&
+        (!('active' in get(/databases/$(database)/documents/staff/$(getUserData().staffId)).data) ||
+          get(/databases/$(database)/documents/staff/$(getUserData().staffId)).data.active == true);
+    }
+
     function isAdmin() {
       return isAuthenticated() && getRole() == 'Administrador';
     }
 
     function belongsToSchool(schoolName) {
-      return isAuthenticated() && (isAdmin() || getSchool() == schoolName);
+      return isActiveAccount() && (isAdmin() || getSchool() == schoolName);
     }
 
     function isClinicalTeam() {
@@ -126,12 +134,14 @@ service cloud.firestore {
       allow create: if isAuthenticated() && (getRole() == 'Administrador' || (getRole() == 'Directivo' && belongsToSchool(request.resource.data.school)));
       allow update: if isAuthenticated() && (
         getRole() == 'Administrador' || 
-        (getRole() == 'Directivo' && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school)) ||
+        (getRole() == 'Directivo' && belongsToSchool(resource.data.school) && belongsToSchool(request.resource.data.school) &&
+          request.resource.data.get('active', true) == resource.data.get('active', true)) ||
         (
           request.auth.token.email == resource.data.email && 
           request.auth.token.email == request.resource.data.email &&
           request.resource.data.role == resource.data.role &&
-          request.resource.data.school == resource.data.school
+          request.resource.data.school == resource.data.school &&
+          request.resource.data.get('active', true) == resource.data.get('active', true)
         )
       );
       allow delete: if isAuthenticated() && (getRole() == 'Administrador' || (getRole() == 'Directivo' && belongsToSchool(resource.data.school)));

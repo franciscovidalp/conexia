@@ -31,6 +31,9 @@ export interface Staff {
   school: SchoolType;
   role: UserRole;
   email: string;
+  active?: boolean;
+  suspendedAt?: number;
+  suspendedBy?: string;
 }
 
 export type CaseType = 'Positiva' | 'Leve' | 'Grave' | 'Gravísima';

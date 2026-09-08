@@ -206,6 +206,17 @@ function App() {
 
   useEffect(() => {
     if (!loggedInUser) return;
+    return dbService.watchStaffActive(loggedInUser.id, active => {
+      if (active) return;
+      void dbService.signOut();
+      clearSensitiveState();
+      setLoggedInUser(null);
+      toast.error('Tu cuenta fue suspendida por un administrador. La sesión se cerró por seguridad.');
+    });
+  }, [loggedInUser, clearSensitiveState]);
+
+  useEffect(() => {
+    if (!loggedInUser) return;
     const auditExport = (event: Event) => {
       const detail = (event as CustomEvent<{ action: string; school: string; resourceType: string }>).detail;
       if (!detail || detail.school === 'General') return;
