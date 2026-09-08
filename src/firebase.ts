@@ -21,6 +21,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import type { Student, Staff, CoexistenceCase, Activity, PsychosocialCase, ClinicalSession, SchoolType, PsychosocialStatus, School, ChatMessage, Meeting, SurveyAnswer, SurveyAccess, RiceProtocol, ManagementObjective, ExternalReferral, ParentSummons, AuditLog, PrivacySettings, SecurityIncident, LoginEvent } from './types';
+import { validateStudentImportRows, type StudentImportRow } from './lib/validation';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
@@ -632,7 +633,8 @@ export const dbService = {
     return newStd;
   },
 
-  async importStudentsCSV(schoolName: SchoolType, csvRows: any[]): Promise<number> {
+  async importStudentsCSV(schoolName: SchoolType, inputRows: StudentImportRow[]): Promise<number> {
+    const csvRows = validateStudentImportRows(inputRows);
     const all = getLocalData<Student>('students', MOCK_STUDENTS);
     let count = 0;
     

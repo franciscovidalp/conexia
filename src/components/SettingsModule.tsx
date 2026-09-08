@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 import { THEMES } from '../lib/themes';
 import type { ColorTheme } from '../lib/themes';
 import { ROLE_PERMISSION_SUMMARY } from '../lib/permissions';
+import { isValidEmail, isValidRut, normalizeRut, validateStudentImportRows, type StudentImportRow } from '../lib/validation';
 
 interface SettingsModuleProps {
   activeSchool: SchoolType;
@@ -209,19 +210,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       toast.error('Nombre y RUT del establecimiento son requeridos.');
       return;
     }
+    if (!isValidRut(schoolRut)) { toast.error('El RUT del establecimiento no es válido.'); return; }
 
     try {
       if (editingSchool) {
         await dbService.updateSchool(editingSchool.id, {
           name: schoolName,
-          rut: schoolRut,
+          rut: normalizeRut(schoolRut),
           address: schoolAddress
         });
         toast.success('Establecimiento actualizado con éxito.');
       } else {
         await dbService.createSchool({
           name: schoolName,
-          rut: schoolRut,
+          rut: normalizeRut(schoolRut),
           address: schoolAddress
         });
         toast.success('Nuevo establecimiento registrado con éxito.');
@@ -273,16 +275,18 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       toast.error('Complete todos los campos obligatorios.');
       return;
     }
+    if (!isValidRut(studentRut)) { toast.error('El RUT del estudiante no es válido.'); return; }
+    if (!isValidEmail(studentEmail.trim())) { toast.error('El correo del estudiante no es válido.'); return; }
 
     try {
       const payload = {
-        rut: studentRut.trim(),
+        rut: normalizeRut(studentRut),
         firstName: studentFirstName.trim(),
         lastName: studentLastName.trim(),
         school: activeSchool,
         grade: studentGrade.trim(),
         conductScore: editingStudent ? editingStudent.conductScore : 100,
-        email: studentEmail.trim() || `${studentFirstName.toLowerCase()}@conexia.cl`
+        email: studentEmail.trim().toLowerCase()
       };
 
       if (editingStudent) {
@@ -341,10 +345,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       toast.error('Complete todos los campos del formulario.');
       return;
     }
+    if (!isValidRut(staffRut)) { toast.error('El RUT del funcionario no es válido.'); return; }
+    if (!isValidEmail(staffEmail.trim())) { toast.error('El correo del funcionario no es válido.'); return; }
 
     try {
       const payload = {
-        rut: staffRut.trim(),
+        rut: normalizeRut(staffRut),
         firstName: staffFirstName.trim(),
         lastName: staffLastName.trim(),
         email: staffEmail.trim(),
@@ -442,6 +448,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       toast.error('Seleccione un archivo CSV primero.');
       return;
     }
+    if (csvFile.size > 2 * 1024 * 1024) { toast.error('El archivo supera el máximo permitido de 2 MB.'); return; }
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -449,7 +456,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       if (!text) return;
 
       try {
-        const rows = parseCSVText(text);
+        const rows = validateStudentImportRows(parseCSVText(text));
         if (rows.length === 0) {
           toast.error('El CSV está vacío o el formato es incorrecto.');
           return;
@@ -460,28 +467,42 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
         setCsvFile(null);
         onRefreshStudents();
       } catch (err) {
-        toast.error('Error al procesar el archivo. Verifique el formato y delimitador.');
+        toast.error(err instanceof Error ? err.message : 'Error al procesar el archivo.');
       }
     };
     reader.readAsText(csvFile);
   };
 
-  const parseCSVText = (text: string) => {
-    const lines = text.split('\n');
+  const parseCSVText = (text: string): StudentImportRow[] => {
+    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
     if (lines.length < 2) return [];
 
     const firstLine = lines[0];
     const delimiter = firstLine.includes(';') ? ';' : ',';
 
-    const headers = firstLine.split(delimiter).map(h => h.trim().toLowerCase().replace(/["']/g, ''));
-    const result: any[] = [];
+    const parseLine = (line: string) => {
+      const values: string[] = [];
+      let current = '';
+      let quoted = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+        if (char === '"' && line[index + 1] === '"' && quoted) { current += '"'; index += 1; }
+        else if (char === '"') quoted = !quoted;
+        else if (char === delimiter && !quoted) { values.push(current.trim()); current = ''; }
+        else current += char;
+      }
+      values.push(current.trim());
+      return values;
+    };
+    const headers = parseLine(firstLine).map(h => h.trim().toLowerCase().replace(/["']/g, ''));
+    const result: StudentImportRow[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
       
-      const values = line.split(delimiter).map(v => v.trim().replace(/["']/g, ''));
-      const obj: any = {};
+      const values = parseLine(line);
+      const obj: Record<string, string> = {};
       
       headers.forEach((header, index) => {
         obj[header] = values[index] || '';
